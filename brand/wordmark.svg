@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 520" role="img" aria-labelledby="title desc">
+  <title id="title">Chorotheia — Memory beyond context.</title>
+  <desc id="desc">Universal Agent Context and Memory System. MEMORY, CONTINUITY, COLLABORATION.</desc>
+  <rect width="1280" height="520" rx="24" fill="#111820"/>
+  <path d="M92 86H1188M92 434H1188" stroke="#b6a78c" stroke-opacity=".45"/>
+  <text x="640" y="156" text-anchor="middle" fill="#b6a78c" font-family="Arial,Helvetica,sans-serif" font-size="14" letter-spacing="7">MEMORY · CONTINUITY · COLLABORATION</text>
+  <text x="640" y="252" text-anchor="middle" fill="#f5f0e7" font-family="Arial,Helvetica,sans-serif" font-size="65" font-weight="500" letter-spacing="12">CHOROTHEIA</text>
+  <text x="640" y="309" text-anchor="middle" fill="#f5f0e7" font-family="Arial,Helvetica,sans-serif" font-size="29">Memory beyond context.</text>
+  <text x="640" y="356" text-anchor="middle" fill="#b6a78c" font-family="Arial,Helvetica,sans-serif" font-size="18" letter-spacing="1.5">Universal Agent Context &amp; Memory System</text>
+  <text x="640" y="401" text-anchor="middle" fill="#c0c8cf" font-family="Arial,Helvetica,sans-serif" font-size="17">One memory. Any agent.</text>
+</svg>

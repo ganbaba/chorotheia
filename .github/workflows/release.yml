@@ -1,0 +1,61 @@
+name: Verify and publish Chorotheia
+
+on:
+  push:
+    branches: [main]
+    paths: [release-manifest.json, .github/workflows/release.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chorotheia-formal-release
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python: '3.9'
+          - os: macos-15
+            python: '3.13'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Validate and test isolated projects
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python -B -m unittest discover -s tests -v
+      - name: Verify source integrity and build archives
+        run: python -B scripts/build_release.py --output "$RUNNER_TEMP/chorotheia-verified"
+
+  publish:
+    needs: verify
+    if: github.repository == 'ganbaba/chorotheia' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.13'
+      - name: Build exact verified source bundle
+        run: python -B scripts/build_release.py --output "$RUNNER_TEMP/chorotheia-dist"
+      - name: Publish tag, release and verified assets
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python -B scripts/publish_release.py --repo "$GITHUB_REPOSITORY" --commit "$GITHUB_SHA" --dist "$RUNNER_TEMP/chorotheia-dist"
