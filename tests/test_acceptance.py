@@ -516,6 +516,7 @@ class InstallationAcceptance(unittest.TestCase):
         config.write_bytes(b'user_setting = "keep"\n')
         r = install(SOURCE, self.target, self.user)
         self.assertTrue(r["installed"])
+        self.assertEqual((self.target / "LICENSE").read_bytes(), (SOURCE / "LICENSE").read_bytes())
         self.assertEqual(config.read_bytes(), b'user_setting = "keep"\n')
         self.assertTrue((self.target / r["backup"]).exists())
         launcher = self.target / "bin/chorotheia"
@@ -572,6 +573,21 @@ class InstallationAcceptance(unittest.TestCase):
             with self.assertRaises(SafetyError):
                 upgrade_global(self.target, False, src)
             self.assertEqual(t.snapshot(), before)
+
+    def test_maintenance_update_carries_license_and_preserves_user_edits(self):
+        install(SOURCE, self.target, self.user)
+        src = self.root / "licensed-maintenance"
+        for folder in ["chorotheia", "skills", "tests"]:
+            shutil.copytree(SOURCE / folder, src / folder)
+        revised = (SOURCE / "LICENSE").read_bytes().replace(b"2026 ganbaba", b"2026 fixture")
+        (src / "LICENSE").write_bytes(revised)
+        result = upgrade_global(self.target, False, src)
+        self.assertIn("LICENSE", result["updated"])
+        self.assertEqual((self.target / "LICENSE").read_bytes(), revised)
+        (self.target / "LICENSE").write_bytes(b"User-edited licensing note")
+        result = upgrade_global(self.target, False, src)
+        self.assertIn("LICENSE", result["modified_install_files"])
+        self.assertEqual((self.target / "LICENSE").read_bytes(), b"User-edited licensing note")
 
     def test_installer_failure_cleans_new_registrations_only(self):
         (self.user / ".codex").mkdir()

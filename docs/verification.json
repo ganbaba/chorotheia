@@ -2,7 +2,7 @@
   "version": "1.0.0",
   "date": "2026-11-25",
   "test_environment": "macOS arm64, Python 3.9.6; isolated temporary projects/config homes",
-  "tests_run": 62,
+  "tests_run": 64,
   "failures": 0,
   "errors": 0,
   "skipped": 0,
@@ -237,6 +237,10 @@
       "status": "passed"
     },
     {
+      "test": "test_maintenance_update_carries_license_and_preserves_user_edits",
+      "status": "passed"
+    },
+    {
       "test": "test_private_home_permissions_enforced",
       "status": "passed"
     },
@@ -253,6 +257,10 @@
       "status": "passed"
     },
     {
+      "test": "test_source_and_standalone_skill_archives_carry_the_license",
+      "status": "passed"
+    },
+    {
       "test": "test_tampered_source_is_refused",
       "status": "passed"
     }
@@ -262,6 +270,9 @@
   "handoff_protocol_v1_original_validator": "passed in prior local compatibility check; original Handoff source unchanged",
   "prior_installed_cli_smoke_checks_passed": 31,
   "privacy": "No machine-specific paths, configuration backups, private receipts, memory or native transcripts included",
-  "release_packaging_tests": 4,
-  "source": "Standalone release candidate; local macOS verification; CI results recorded by GitHub Actions"
+  "release_packaging_tests": 5,
+  "source": "MIT licensing maintenance: local macOS verification; CI results recorded by GitHub Actions",
+  "license": "MIT",
+  "wheel_license_expression": "MIT",
+  "wheel_license_file_embedded": true
 }

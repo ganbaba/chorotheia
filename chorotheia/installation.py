@@ -50,6 +50,9 @@ def install(source, target, user_home=None, register=True, dry_run=False, handof
         release = "core/releases/" + __version__
         bid = uuid.uuid4().hex
         files = {}
+        with Tree(source) as src:
+            if src.exists("LICENSE"):
+                files["LICENSE"] = src.read("LICENSE")
         package = source / "chorotheia"
         if not package.is_dir():
             package = source / release / "chorotheia"
@@ -205,6 +208,8 @@ def upgrade_global(target, dry_run=False, source=None):
             for p in sorted((source / "tests").glob("*.py")):
                 updates["tests/" + p.name] = src.read("tests/" + p.name)
             updates["skills/chorotheia/SKILL.md"] = src.read("skills/chorotheia/SKILL.md")
+            if src.exists("LICENSE"):
+                updates["LICENSE"] = src.read("LICENSE")
         changed = {p: b for p, b in updates.items() if digest(b) != r["files"].get(p)}
         if dry_run or not changed:
             return {"dry_run": dry_run, "changed": False, "would_update": list(changed), "version": __version__}

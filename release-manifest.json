@@ -14,6 +14,7 @@
   "files": [
     ".github/workflows/release.yml",
     ".gitignore",
+    "LICENSE",
     "README.md",
     "RELEASE-NOTES.md",
     "SOURCE-SHA256SUMS.txt",
@@ -43,5 +44,6 @@
     "skills/chorotheia/SKILL.md",
     "tests/test_acceptance.py",
     "tests/test_release.py"
-  ]
+  ],
+  "license": "MIT"
 }

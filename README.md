@@ -13,6 +13,7 @@
 [![Forks](https://img.shields.io/github/forks/ganbaba/chorotheia?style=social)](https://github.com/ganbaba/chorotheia/forks)
 [![Issues](https://img.shields.io/github/issues/ganbaba/chorotheia)](https://github.com/ganbaba/chorotheia/issues)
 [![Release](https://img.shields.io/github/v/release/ganbaba/chorotheia)](https://github.com/ganbaba/chorotheia/releases/latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 [![Checks](https://img.shields.io/github/actions/workflow/status/ganbaba/chorotheia/release.yml?branch=main&label=checks)](https://github.com/ganbaba/chorotheia/actions/workflows/release.yml)
 [![Python 3.9+](https://img.shields.io/badge/Python-3.9%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
@@ -82,4 +83,6 @@ Git 项目可在可信启动 Hook 中自动初始化；非 Git 目录需显式 i
 
 外部编辑器不受合作锁约束，最终校验与替换/删除之间仍有极小竞态；敏感过滤是启发式。恢复不包含原生会话、未保存文件或隐藏思考；compact 是保留原件的逻辑归档。未知旧 UACS/Letheia 格式拒绝猜测迁移；缺少本机所有权凭据的导入记忆暂为只读。详见 [操作说明](docs/OPERATIONS.md) 和 [测试范围](docs/TESTING.md)。
 
-v1.0.0 的品牌与模块命名沿用最终定义。商标查重尚未完成；不使用注册商标标记。本仓库未另行授予开源许可证，公开源码和发布版本不自动构成许可声明；本次未发布到 PyPI 或 npm。
+本项目采用 [MIT 许可证](LICENSE)，版权声明为 `Copyright (c) 2026 ganbaba`。源码包、独立 Skill 包和新安装副本均携带许可证；再分发时请保留版权及许可声明。
+
+v1.0.0 的品牌与模块命名沿用最终定义。商标查重尚未完成；不使用注册商标标记。本次未发布到 PyPI 或 npm。

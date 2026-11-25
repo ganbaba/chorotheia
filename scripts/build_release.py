@@ -88,6 +88,7 @@ def build(root, output):
         archive.write(tar.getvalue())
     archives['chorotheia-' + version + '-source.tar.gz'] = compressed.getvalue()
     skill = {name[len('skills/chorotheia/'):]: data for name, data in files.items() if name.startswith('skills/chorotheia/')}
+    skill['LICENSE'] = files['LICENSE']
     archives['chorotheia-skill-' + version + '.zip'] = zip_bytes(skill, 'chorotheia/')
     checksums = ''.join(sha(data) + '  ' + name + '\n' for name, data in sorted(archives.items()))
     archives['SHA256SUMS.txt'] = checksums.encode()

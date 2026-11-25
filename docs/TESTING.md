@@ -1,6 +1,6 @@
 # 测试与验证范围
 
-2026-11-25，macOS arm64、Python 3.9.6。对独立仓库正式发布候选重新运行 **62 项测试，全部通过**，无失败、错误或跳过。测试仅操作临时项目和临时配置目录，使用标准库、本地进程和合成 Agent 输入；不发送真实模型请求。
+2026-11-25，macOS arm64、Python 3.9.6。对MIT 许可维护版本重新运行 **64 项测试，全部通过**，无失败、错误或跳过。测试仅操作临时项目和临时配置目录，使用标准库、本地进程和合成 Agent 输入；不发送真实模型请求。
 
 机器可读记录见 [verification.json](verification.json)。含个人绝对路径的本机安装记录、备份、原生探测输出和项目记忆未公开。
 
@@ -69,8 +69,20 @@ POSIX 锁仅约束合作写者，不能消除外部编辑器最终检查与替�
 | 55 | test_installer_failure_cleans_new_registrations_only | passed |
 | 56 | test_invalid_maintenance_bundle_preserves_installation | passed |
 | 57 | test_local_maintenance_upgrade_is_hashed_backed_up_and_idempotent | passed |
-| 58 | test_private_home_permissions_enforced | passed |
+| 58 | test_maintenance_update_carries_license_and_preserves_user_edits | passed |
+| 59 | test_private_home_permissions_enforced | passed |
+| 60 | test_archives_are_deterministic_and_private_state_excluded | passed |
+| 61 | test_existing_tag_cannot_be_retargeted | passed |
+| 62 | test_manifest_traversal_and_symlink_are_refused | passed |
+| 63 | test_source_and_standalone_skill_archives_carry_the_license | passed |
+| 64 | test_tampered_source_is_refused | passed |
 
-## 正式发布归档验证
+## 许可分发验证
 
-新增四项测试：确定性源码/Skill 归档与私有状态排除、源码被修改时拒绝构建、路径穿越/符号链接拒绝、已存在版本标签不允许改指向。其余 58 项核心验收保持通过。Actions 运行记录另行证明远程测试结果，未运行前不宣称远程通过。
+在原有验收基础上，新增源码 ZIP、tar.gz 和独立 Skill ZIP 的 LICENSE 分发验证，以及维护升级携带许可证并保留用户编辑的验证。现有安装测试也核对新安装副本中的 LICENSE 与源文件一致。
+
+另在临时隔离环境实际构建了 Python wheel：`License-Expression: MIT`、`License-File: LICENSE` 与嵌入的许可证正文均已核对。未修改全局 Python 环境，未发布到 PyPI。
+
+## 归档验证
+
+验证确定性归档、私有状态排除、源码篡改拒绝、路径穿越/符号链接拒绝和已有标签不被改写。远程平台测试结果以对应 Actions 运行记录为准。

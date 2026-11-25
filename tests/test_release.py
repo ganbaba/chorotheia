@@ -36,6 +36,18 @@ class ReleaseTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'checksum mismatch'):
                 sources(source)
 
+    def test_source_and_standalone_skill_archives_carry_the_license(self):
+        license_bytes = (ROOT/'LICENSE').read_bytes()
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp)
+            build(ROOT, output)
+            with zipfile.ZipFile(output/'chorotheia-1.0.0-source.zip') as z:
+                self.assertEqual(z.read('chorotheia-1.0.0/LICENSE'), license_bytes)
+            with tarfile.open(output/'chorotheia-1.0.0-source.tar.gz') as t:
+                self.assertEqual(t.extractfile('chorotheia-1.0.0/LICENSE').read(), license_bytes)
+            with zipfile.ZipFile(output/'chorotheia-skill-1.0.0.zip') as z:
+                self.assertEqual(z.read('chorotheia/LICENSE'), license_bytes)
+
     def test_manifest_traversal_and_symlink_are_refused(self):
         with tempfile.TemporaryDirectory() as temp:
             source=Path(temp)/'source'
