@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 740 180" role="img" aria-labelledby="title desc">
+  <title id="title">Chorotheia</title>
+  <desc id="desc">One memory. Any agent. Official Chorotheia icon and wordmark.</desc>
+  <g transform="translate(0 10)"><circle cx="80" cy="80" r="69" fill="none" stroke="#C6B995" stroke-opacity=".15"/><circle cx="80" cy="80" r="57" fill="none" stroke="#C6B995" stroke-opacity=".3"/><path d="M119 40 A56 56 0 1 0 119 120" stroke="#D8C6A0" stroke-width="6" stroke-linecap="round" fill="none"/><ellipse cx="80" cy="80" rx="37" ry="19" transform="rotate(-45 80 80)" fill="none" stroke="#8EAFC8" stroke-width="2.5"/><ellipse cx="80" cy="80" rx="37" ry="19" transform="rotate(45 80 80)" fill="none" stroke="#8EAFC8" stroke-width="2.5"/><path d="M80 49 V111 M49 80 H111" stroke="#D8C6A0" stroke-opacity=".4" stroke-width="1.5"/><circle cx="80" cy="49" r="4" fill="#D8C6A0"/><circle cx="80" cy="111" r="4" fill="#D8C6A0"/><circle cx="49" cy="80" r="4" fill="#D8C6A0"/><circle cx="111" cy="80" r="4" fill="#D8C6A0"/><circle cx="80" cy="80" r="8" fill="#E6D5B2"/><circle cx="119" cy="40" r="4" fill="#E6D5B2"/><circle cx="119" cy="120" r="4" fill="#E6D5B2"/></g>
+  <text x="196" y="96" fill="#111820" font-family="Arial,Helvetica,sans-serif" font-size="64" font-weight="600" textLength="510" lengthAdjust="spacing">CHOROTHEIA</text>
+  <text x="199" y="137" fill="#66717f" font-family="Arial,Helvetica,sans-serif" font-size="24">One memory. Any agent.</text>
+</svg>

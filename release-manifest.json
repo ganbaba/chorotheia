@@ -19,6 +19,8 @@
     "SOURCE-SHA256SUMS.txt",
     "brand/BRAND.md",
     "brand/icon.svg",
+    "brand/readme-logo-dark.svg",
+    "brand/readme-logo-light.svg",
     "brand/wordmark-light.svg",
     "brand/wordmark.svg",
     "chorotheia/__init__.py",

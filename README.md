@@ -1,16 +1,33 @@
-<p align="center"><img src="brand/icon.svg" alt="Chorotheia brand icon" width="128"></p>
+<div align="center">
 
-<p align="center"><img src="brand/wordmark.svg" alt="CHOROTHEIA — Memory beyond context." width="100%"></p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="brand/readme-logo-dark.svg">
+  <img src="brand/readme-logo-light.svg" width="520" alt="Chorotheia — One memory. Any agent.">
+</picture>
 
-<p align="center"><strong>让记忆超越上下文的边界。</strong><br>Local-first · Agent-agnostic · One memory. Any agent.</p>
+**Memory beyond context.**
 
-# Chorotheia v1.0.0
+**Universal Agent Context & Memory System — 让记忆超越上下文的边界。**
+
+[![Stars](https://img.shields.io/github/stars/ganbaba/chorotheia?style=social)](https://github.com/ganbaba/chorotheia/stargazers)
+[![Forks](https://img.shields.io/github/forks/ganbaba/chorotheia?style=social)](https://github.com/ganbaba/chorotheia/forks)
+[![Issues](https://img.shields.io/github/issues/ganbaba/chorotheia)](https://github.com/ganbaba/chorotheia/issues)
+[![Release](https://img.shields.io/github/v/release/ganbaba/chorotheia)](https://github.com/ganbaba/chorotheia/releases/latest)
+
+[![Checks](https://img.shields.io/github/actions/workflow/status/ganbaba/chorotheia/release.yml?branch=main&label=checks)](https://github.com/ganbaba/chorotheia/actions/workflows/release.yml)
+[![Python 3.9+](https://img.shields.io/badge/Python-3.9%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
+[![Local-first](https://img.shields.io/badge/Local--first-D8C6A0?labelColor=30363D)](docs/ARCHITECTURE.md)
+[![Agent-agnostic](https://img.shields.io/badge/Agent--agnostic-8EAFC8?labelColor=30363D)](docs/ARCHITECTURE.md)
+
+[安装](#安装) · [使用](#使用) · [正式版本](https://github.com/ganbaba/chorotheia/releases/tag/v1.0.0) · [操作文档](docs/OPERATIONS.md) · [架构](docs/ARCHITECTURE.md) · [测试](docs/TESTING.md) · [品牌](brand/BRAND.md) · [Skill](skills/chorotheia/SKILL.md)
+
+</div>
+
+## 简介
 
 **Universal Agent Context & Memory System** — 通用 Agent 上下文与持久化记忆系统。为 Codex、Google Antigravity 与 GitHub Copilot 提供可携带的项目记忆、阶段检查点、上下文恢复和跨 Agent 交接笔记。
 
 Python 3.9+ 标准库运行，使用 Markdown、JSON 和只读 Git。不默认引入数据库、守护进程或云端记忆服务。
-
-[正式版本](https://github.com/ganbaba/chorotheia/releases/tag/v1.0.0) · [版本说明](RELEASE-NOTES.md) · [安装与操作](docs/OPERATIONS.md) · [架构](docs/ARCHITECTURE.md) · [测试](docs/TESTING.md) · [品牌](brand/BRAND.md) · [Skill](skills/chorotheia/SKILL.md)
 
 ## 安装
 

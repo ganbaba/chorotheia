@@ -40,6 +40,17 @@ Universal Agent Context & Memory System
 
 保留名称大小写、宣传语拼写和句点；正文用 Chorotheia，CLI 使用小写。不要使用 ® 或声称商标已完成查重。品牌资产随源码提供，仓库公开不等于授予商标权或完成许可声明。
 
+## README 页首
+
+README 使用紧凑的横排“图标＋字标”，配合原生居中文本、宣传语和徽章栏，不将整个页首嵌入带背景的大幅图片。
+
+- [深色主题组合标识](readme-logo-dark.svg)
+- [浅色主题组合标识](readme-logo-light.svg)
+
+两版标识直接复用原始 SVG 图标的图形内容，使用透明背景；README 通过 `picture` 与 `prefers-color-scheme` 选择对应字色。原始 [icon.svg](icon.svg) 保持不变。
+
+Stars、Forks、Issues、Release 和 Checks 徽章读取仓库实际状态；Python 版本和设计理念对应项目当前定义。未设置不存在的许可证或翻译状态徽章。
+
 ## 正式模块命名
 
 Chorotheia Core、Bootstrap、Memory、Checkpoint、Restore、Handoff、Guard、Compact、Recall、Hooks、Adapters、Doctor。职责及实际实现映射见 [架构](../docs/ARCHITECTURE.md)。
