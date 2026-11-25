@@ -19,7 +19,7 @@
 [![Local-first](https://img.shields.io/badge/Local--first-D8C6A0?labelColor=30363D)](docs/ARCHITECTURE.md)
 [![Agent-agnostic](https://img.shields.io/badge/Agent--agnostic-8EAFC8?labelColor=30363D)](docs/ARCHITECTURE.md)
 
-[安装](#安装) · [使用](#使用) · [正式版本](https://github.com/ganbaba/chorotheia/releases/tag/v1.0.0) · [操作文档](docs/OPERATIONS.md) · [架构](docs/ARCHITECTURE.md) · [测试](docs/TESTING.md) · [品牌](brand/BRAND.md) · [Skill](skills/chorotheia/SKILL.md)
+[安装](#安装) · [使用](#使用) · [正式版本](https://github.com/ganbaba/chorotheia/releases/tag/v1.0.0) · [操作文档](docs/OPERATIONS.md) · [架构](docs/ARCHITECTURE.md) · [测试](docs/TESTING.md) · [Skill](skills/chorotheia/SKILL.md)
 
 </div>
 
