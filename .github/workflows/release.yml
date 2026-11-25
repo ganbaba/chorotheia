@@ -19,7 +19,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             python: '3.9'
           - os: macos-15
             python: '3.13'
@@ -42,7 +42,7 @@ jobs:
   publish:
     needs: verify
     if: github.repository == 'ganbaba/chorotheia' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 10
     permissions:
       contents: write
