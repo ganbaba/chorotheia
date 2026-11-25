@@ -18,6 +18,7 @@
     "RELEASE-NOTES.md",
     "SOURCE-SHA256SUMS.txt",
     "brand/BRAND.md",
+    "brand/icon.svg",
     "brand/wordmark-light.svg",
     "brand/wordmark.svg",
     "chorotheia/__init__.py",

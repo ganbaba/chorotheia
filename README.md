@@ -1,3 +1,5 @@
+<p align="center"><img src="brand/icon.svg" alt="Chorotheia brand icon" width="128"></p>
+
 <p align="center"><img src="brand/wordmark.svg" alt="CHOROTHEIA — Memory beyond context." width="100%"></p>
 
 <p align="center"><strong>让记忆超越上下文的边界。</strong><br>Local-first · Agent-agnostic · One memory. Any agent.</p>

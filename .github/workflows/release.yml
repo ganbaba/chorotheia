@@ -41,7 +41,11 @@ jobs:
 
   publish:
     needs: verify
-    if: github.repository == 'ganbaba/chorotheia' && github.ref == 'refs/heads/main'
+    if: >-
+      github.repository == 'ganbaba/chorotheia' &&
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       startsWith(github.event.head_commit.message, 'release:'))
     runs-on: ubuntu-22.04
     timeout-minutes: 10
     permissions:
