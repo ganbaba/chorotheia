@@ -1,6 +1,7 @@
 """Capability-aware hook payload adapters; no native agent or network invocation."""
 import json
 import os
+import sys
 from pathlib import Path
 import shlex
 from .guard import Tree, SafetyError, lock
@@ -8,7 +9,8 @@ from .core import initialize, require, checkpoint
 from .memory import git, restore
 
 CAPABILITIES = {
-    "codex": {"documented_events": ["SessionStart", "PreCompact", "PostCompact", "Stop"],
+    "codex": {"documented_events": ["SessionStart", "PreCompact", "PostCompact", "Stop", "UserPromptSubmit",
+                                      "PostToolUse", "PreModelRequest", "PostModelRequest"],
               "source": "https://learn.chatgpt.com/docs/hooks", "runtime_verified": False,
               "activation": "Native hook trust review may be required; no trust bypass"},
     "antigravity": {"documented_events": ["SessionStart", "Stop"],
@@ -25,7 +27,7 @@ def hook_configs(launcher):
     def command(agent, event):
         return shlex.quote(str(launcher)) + " hook --agent " + agent + " --event " + event
     codex = {"description": "Chorotheia local memory; runs only within initialized/eligible Git projects", "hooks": {}}
-    for event in ["SessionStart", "PreCompact", "PostCompact", "Stop"]:
+    for event in CAPABILITIES['codex']['documented_events']:
         codex["hooks"][event] = [{"hooks": [{"type": "command", "command": command("codex", event), "timeout": 30}]}]
     ag = {"chorotheia": {event: [{"type": "command", "command": command("antigravity", event), "timeout": 30}]
                           for event in ["SessionStart", "Stop"]}}
@@ -48,7 +50,8 @@ def run_hook(home, agent, event, payload):
                     settings[key.strip()] = json.loads(value.strip())
     if settings["auto_init"] not in {"git-project-session-start", "off"}:
         raise SafetyError("Unsupported config auto_init value")
-    # Do not read transcript paths, lastUserInput or tool-call arguments from payloads.
+    # Tool inputs and hidden reasoning are never read. Native transcripts are
+    # consumed only by the project-opted-in, path-restricted monitor below.
     raw = payload.get("cwd")
     if agent == "antigravity" and not raw:
         workspaces = payload.get("workspacePaths", [])
@@ -77,16 +80,45 @@ def run_hook(home, agent, event, payload):
                 m, _, _ = require(tree)
             else:
                 return {}
+        from . import monitor
+        report = monitor.public(monitor.load(home, m))
+        if report['enabled'] and agent == 'codex':
+            require(tree, home, writable=True)
+            transcript = payload.get('transcript_path')
+            if transcript:
+                try:
+                    report = monitor.scan(home, m, path, payload.get('session_id'), transcript)
+                except (SafetyError, OSError, ValueError):
+                    # Failure capture must still work when the source was rotated
+                    # or rejected. Never read an unsafe path to recover a summary.
+                    report = monitor.source_failure(home, m, path, payload.get('session_id'))
+            if event == 'PostModelRequest':
+                report = monitor.model_outcome(home, m, path, payload)
+        warning = monitor.take_notice(home, m, path, event, report) if report['enabled'] else ''
         if start:
-            text = restore(tree, m, settings["initial_budget"])["text"]
+            text = restore(tree, m, settings["initial_budget"], report)["text"]
             if agent == "codex":
                 return {"hookSpecificOutput": {"hookEventName": "SessionStart" if event == "SessionStart" else "PostCompact", "additionalContext": text}}
             if agent == "antigravity":
                 return {"injectSteps": [{"systemMessage": {"systemMessage": text}}]}
             return {"additionalContext": text}
+        if event in {'UserPromptSubmit', 'PostToolUse'}:
+            if warning:
+                return {'systemMessage': warning, 'hookSpecificOutput': {'hookEventName': event, 'additionalContext': warning}}
+            return {}
+        if event == 'PreModelRequest' or (event == 'PostModelRequest' and payload.get('status') != 'failed'):
+            if warning:
+                print(warning, file=sys.stderr)  # Diagnostic only: never claim model-context injection.
+            if event != 'PreModelRequest' or report['quota']['state'] != 'exhausted':
+                return {}
         # Snapshot known notes; don't pretend the hook can see or summarize live reasoning.
         current = json.loads(tree.read(m["paths"]["checkpoint"]))
         checkpoint(tree, home, current.get("summary", "Unknown"),
                    next_steps=current.get("next_steps", []), decisions=current.get("decisions", []),
-                   errors=current.get("errors", []), tests=current.get("tests", []), agent=agent + ":" + event)
+                   errors=current.get("errors", []), tests=current.get("tests", []), agent=agent + ":" + event,
+                   snapshot=True)
+        if event == 'PostModelRequest' and warning:
+            print(warning, file=sys.stderr)
+        if warning and event in {'PreCompact', 'Stop'}:
+            return {'systemMessage': warning}
         return {}

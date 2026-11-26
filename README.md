@@ -75,6 +75,10 @@ chorotheia audit --project /absolute/project
 
 Git 项目可在可信启动 Hook 中自动初始化；非 Git 目录需显式 init。Hook 保存已记录状态，不能提取尚未写下的工作或隐藏思考。
 
+当前维护实现支持按字段优先恢复目标、阶段、下一步和阻塞项，并报告省略内容。`checkpoint --goal ... --phase ...` 开启阶段，结束时用 `--phase-state complete --done ... --test ...` 记录结果。`status.freshness` 区分显式核对、Git 变化需复核、阶段未收尾和未知；自动 Hook 快照不会冒充进度更新。用法和检测边界见[操作说明](docs/OPERATIONS.md#进度核对与阶段遗漏提示)。
+
+可按项目启用 `monitor --enable --quota-warning 80 --quota-critical 95`：观察 Codex 新增可见讨论，生成带来源的待核对候选；从近期原生额度证据给出阈值提醒。模型失败或额度耗尽时仅保存已有笔记并标记“尚未总结的进展”。无额外模型 API 或后台守护进程；新增中途 Hook 需原生信任，其他 Agent 暂按原有检查点降级。见[对话观察与额度提醒](docs/OPERATIONS.md#对话观察与额度提醒)。
+
 与 [Universal Handoff](https://github.com/ganbaba/skills/tree/main/agent-handoff) 互补：原控制器继续管理任务、独立工作区、授权及运行凭据。Chorotheia 提供补充记忆和协议 v1 导出，不启动另一 Agent、不伪造运行 token、不改写原控制面。可通过 `install.py --handoff-skill /absolute/universal-handoff/SKILL.md` 记录原 Skill 入口。协议兼容已验证，真实跨服务自动接力尚未联调。
 
 ## 安全与验证

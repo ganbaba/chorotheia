@@ -208,6 +208,8 @@ def upgrade_global(target, dry_run=False, source=None):
             for p in sorted((source / "tests").glob("*.py")):
                 updates["tests/" + p.name] = src.read("tests/" + p.name)
             updates["skills/chorotheia/SKILL.md"] = src.read("skills/chorotheia/SKILL.md")
+            updates['hooks/codex.json'] = encode(hook_configs(home.root / 'bin/chorotheia')['codex'])
+            updates['adapters/capabilities.json'] = encode(CAPABILITIES)
             if src.exists("LICENSE"):
                 updates["LICENSE"] = src.read("LICENSE")
         changed = {p: b for p, b in updates.items() if digest(b) != r["files"].get(p)}
@@ -224,6 +226,14 @@ def upgrade_global(target, dry_run=False, source=None):
                     if user.hash(p) == old:
                         tx.put(p, skill, old, other=user)
                         r["registrations"][p] = digest(skill)
+                    else:
+                        preserved.append(p)
+                if p == '.codex/hooks.json' and digest(updates['hooks/codex.json']) != old:
+                    # Exact owned definition only. User edits are preserved for a
+                    # separate reviewed merge; native trust state is never written.
+                    if user.hash(p) == old:
+                        tx.put(p, updates['hooks/codex.json'], old, other=user)
+                        r['registrations'][p] = digest(updates['hooks/codex.json'])
                     else:
                         preserved.append(p)
             r["maintenance_upgraded_at"] = now()

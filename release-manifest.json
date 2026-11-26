@@ -27,11 +27,14 @@
     "chorotheia/__main__.py",
     "chorotheia/adapters.py",
     "chorotheia/bootstrap.py",
+    "chorotheia/continuity.py",
     "chorotheia/core.py",
     "chorotheia/doctor.py",
     "chorotheia/guard.py",
     "chorotheia/installation.py",
     "chorotheia/memory.py",
+    "chorotheia/monitor.py",
+    "chorotheia/quota.py",
     "docs/ARCHITECTURE.md",
     "docs/OPERATIONS.md",
     "docs/TESTING.md",
@@ -43,6 +46,8 @@
     "scripts/publish_release.py",
     "skills/chorotheia/SKILL.md",
     "tests/test_acceptance.py",
+    "tests/test_continuity.py",
+    "tests/test_monitor.py",
     "tests/test_release.py"
   ],
   "license": "MIT"

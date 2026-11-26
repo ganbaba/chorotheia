@@ -1,8 +1,8 @@
 {
   "version": "1.0.0",
-  "date": "2026-11-25",
+  "date": "2026-11-26",
   "test_environment": "macOS arm64, Python 3.9.6; isolated temporary projects/config homes",
-  "tests_run": 64,
+  "tests_run": 112,
   "failures": 0,
   "errors": 0,
   "skipped": 0,
@@ -262,6 +262,198 @@
     },
     {
       "test": "test_tampered_source_is_refused",
+      "status": "passed"
+    },
+    {
+      "test": "test_long_chinese_summary_cannot_hide_next_blocker_decision_or_test",
+      "status": "passed"
+    },
+    {
+      "test": "test_complete_sentences_and_atomic_command_entries",
+      "status": "passed"
+    },
+    {
+      "test": "test_first_items_reserved_before_extra_next_steps",
+      "status": "passed"
+    },
+    {
+      "test": "test_tiny_budgets_keep_safety_source_and_omission_notice",
+      "status": "passed"
+    },
+    {
+      "test": "test_legacy_and_initial_snapshots_never_become_reviewed",
+      "status": "passed"
+    },
+    {
+      "test": "test_memory_writes_do_not_invalidate_review",
+      "status": "passed"
+    },
+    {
+      "test": "test_same_dirty_status_content_changes_require_review",
+      "status": "passed"
+    },
+    {
+      "test": "test_untracked_content_and_staging_changes_detected",
+      "status": "passed"
+    },
+    {
+      "test": "test_head_movement_detected_even_when_tree_matches",
+      "status": "passed"
+    },
+    {
+      "test": "test_discussion_phase_requires_explicit_completion",
+      "status": "passed"
+    },
+    {
+      "test": "test_unsafe_or_sensitive_changed_content_is_unknown",
+      "status": "passed"
+    },
+    {
+      "test": "test_review_preview_does_not_change_stage_or_private_receipt",
+      "status": "passed"
+    },
+    {
+      "test": "test_cli_goal_phase_and_freshness",
+      "status": "passed"
+    },
+    {
+      "test": "test_snapshot_preserves_goal_completed_phase_and_test_reports",
+      "status": "passed"
+    },
+    {
+      "test": "test_corrupt_and_edited_checkpoints_cannot_claim_reviewed",
+      "status": "passed"
+    },
+    {
+      "test": "test_non_git_review_remains_explicit_but_coverage_unknown",
+      "status": "passed"
+    },
+    {
+      "test": "test_large_changes_and_external_symlinks_do_not_get_read",
+      "status": "passed"
+    },
+    {
+      "test": "test_disabled_monitor_does_not_open_untrusted_transcript",
+      "status": "passed"
+    },
+    {
+      "test": "test_prospective_binding_does_not_claim_old_history_reviewed",
+      "status": "passed"
+    },
+    {
+      "test": "test_visible_only_candidates_have_source_offsets_and_redaction",
+      "status": "passed"
+    },
+    {
+      "test": "test_duplicate_events_do_not_duplicate_messages",
+      "status": "passed"
+    },
+    {
+      "test": "test_checkpoint_without_review_keeps_discussion_pending",
+      "status": "passed"
+    },
+    {
+      "test": "test_exact_review_token_clears_only_acknowledged_discussion",
+      "status": "passed"
+    },
+    {
+      "test": "test_stale_review_token_cannot_acknowledge_new_messages",
+      "status": "passed"
+    },
+    {
+      "test": "test_failure_snapshot_preserves_notes_and_marks_unsummarized_without_model",
+      "status": "passed"
+    },
+    {
+      "test": "test_exhausted_quota_before_request_snapshots_known_notes",
+      "status": "passed"
+    },
+    {
+      "test": "test_failure_acknowledgement_requires_explicit_token",
+      "status": "passed"
+    },
+    {
+      "test": "test_failed_request_still_snapshots_when_transcript_is_unsafe",
+      "status": "passed"
+    },
+    {
+      "test": "test_thresholds_both_windows_and_multiple_buckets",
+      "status": "passed"
+    },
+    {
+      "test": "test_stale_missing_reset_and_invalid_quota_are_unknown",
+      "status": "passed"
+    },
+    {
+      "test": "test_quota_passive_observation_and_notice_deduplication",
+      "status": "passed"
+    },
+    {
+      "test": "test_hook_additional_context_is_advisory_and_not_a_block",
+      "status": "passed"
+    },
+    {
+      "test": "test_partial_record_is_not_consumed_until_newline",
+      "status": "passed"
+    },
+    {
+      "test": "test_truncation_and_anchor_rewrite_preserve_cursor",
+      "status": "passed"
+    },
+    {
+      "test": "test_path_identity_symlink_and_hardlink_refused",
+      "status": "passed"
+    },
+    {
+      "test": "test_malformed_source_remains_pending_and_cannot_be_acknowledged",
+      "status": "passed"
+    },
+    {
+      "test": "test_other_project_context_is_not_imported",
+      "status": "passed"
+    },
+    {
+      "test": "test_acknowledgement_rolls_back_if_checkpoint_transaction_fails",
+      "status": "passed"
+    },
+    {
+      "test": "test_private_candidates_never_enter_project_checkpoint",
+      "status": "passed"
+    },
+    {
+      "test": "test_explicit_quota_refresh_does_not_start_a_model",
+      "status": "passed"
+    },
+    {
+      "test": "test_warning_and_pending_discussion_survive_restore_budget",
+      "status": "passed"
+    },
+    {
+      "test": "test_cli_configuration_and_preview_zero_writes",
+      "status": "passed"
+    },
+    {
+      "test": "test_maintenance_adds_events_without_touching_existing_definitions_or_trust",
+      "status": "passed"
+    },
+    {
+      "test": "test_maintenance_preserves_modified_native_hooks",
+      "status": "passed"
+    },
+    {
+      "test": "test_native_rpc_sends_only_initialize_and_rate_limit_read",
+      "status": "passed"
+    },
+    {
+      "test": "test_native_rpc_timeout_is_bounded_and_process_is_reaped",
+      "status": "passed"
+    },
+    {
+      "test": "test_stale_private_state_write_preserves_external_change",
+      "status": "passed"
+    },
+    {
+      "test": "test_oversized_hook_event_is_diagnostic_not_blocking",
       "status": "passed"
     }
   ],

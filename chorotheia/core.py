@@ -8,6 +8,7 @@ from . import __version__
 from .guard import Tree, SafetyError, Transaction, digest, encode, lock
 from . import bootstrap
 from .memory import clean, redact, git_state, restore as load_context, bounded
+from .continuity import observe, assess
 
 
 def now():
@@ -83,15 +84,53 @@ def initialize(tree, home, mode="auto", dry_run=False, capabilities=None):
     return result
 
 
-def checkpoint(tree, home, summary, next_steps=(), decisions=(), errors=(), tests=(), agent="manual", dry_run=False, **unused):
+def checkpoint(tree, home, summary, next_steps=(), decisions=(), errors=(), tests=(), agent="manual", dry_run=False,
+               goal=None, completed=(), phase=None, phase_state=None, snapshot=False, review_discussion=(), **unused):
     m, rel, mh = require(tree, home, writable=not dry_run)
     if not dry_run:
         check_pending(home, tree.root)
-    cp = clean({"schema": 1, "version": __version__, "id": uuid.uuid4().hex,
-                "created_at": now(), "agent": agent, "summary": summary,
+    current = json.loads(tree.read(m['paths']['checkpoint']))
+    if tree.hash(m['paths']['checkpoint']) != m['managed'].get(m['paths']['checkpoint']):
+        raise SafetyError('Edited checkpoint preserved; inspect audit')
+    stamp, ident = now(), uuid.uuid4().hex
+    from . import monitor
+    monitor_data = monitor.load(home, m)
+    if snapshot and review_discussion:
+        raise SafetyError('Automatic snapshots cannot acknowledge discussion')
+    reviewed_tokens = monitor.acknowledge(monitor_data, review_discussion) if review_discussion else []
+    observation = monitor.public(monitor_data)
+    observed = observe(tree, m)
+    stage = current.get('phase')
+    if phase_state is not None and phase_state not in {'open', 'complete'}:
+        raise SafetyError('Phase state must be open or complete')
+    if phase is not None:
+        if not isinstance(phase, str) or not phase.strip() or len(phase.encode()) > 200:
+            raise SafetyError('Phase name must be nonempty and at most 200 UTF-8 bytes')
+        if stage and stage.get('state') == 'open' and stage.get('name') != phase:
+            raise SafetyError('Complete the open phase before starting a different one')
+        stage = {'name': phase, 'state': phase_state or 'open'}
+    elif phase_state is not None:
+        if not stage:
+            raise SafetyError('No phase to update; supply --phase')
+        stage = dict(stage, state=phase_state)
+    cp = clean({"schema": 1, "version": __version__, "id": ident,
+                "created_at": stamp, "snapshot_at": stamp, "agent": agent, "summary": summary,
+                "goal": goal if goal is not None else current.get('goal'), "completed": list(completed),
+                "phase": stage,
                 "next_steps": list(next_steps), "decisions": list(decisions), "errors": list(errors),
                 "tests": list(tests), "test_evidence": "Agent/operator reports; not independently executed by Chorotheia",
+                "reviewed_at": stamp, "reviewed_checkpoint_id": ident, "covered_git": observed,
+                "observed_git": observed,
+                "discussion_review_tokens": reviewed_tokens,
+                "unsummarized_progress": {'pending': observation['unsummarized_progress'],
+                    'label': observation['label'], 'pending_messages': observation['pending_messages'],
+                    'model_failure': observation['model_failure'], 'quota_state': observation['quota']['state']},
                 "git": git_state(tree.root), "sources": [m["paths"]["state"], m["paths"]["context"]]})
+    if snapshot:
+        # Copy semantic data, never promote a hook snapshot to explicit review.
+        for key in ('summary', 'goal', 'completed', 'phase', 'next_steps', 'decisions', 'errors', 'tests',
+                    'reviewed_at', 'reviewed_checkpoint_id', 'covered_git'):
+            cp[key] = current.get(key)
     if len(encode(cp)) > 128000:
         raise SafetyError("Checkpoint too large (128KB maximum); store evidence separately")
     if dry_run:
@@ -104,6 +143,9 @@ def checkpoint(tree, home, summary, next_steps=(), decisions=(), errors=(), test
                                "\n\nEvidence: " + m["base"] + "/history/" + cp["id"] + ".json\n").encode(),
     }
     with Transaction(tree, home, "checkpoint") as tx:
+        if reviewed_tokens:
+            mp = monitor.location(m)
+            tx.put(mp, monitor.encode_state(monitor_data), monitor_data['_expected_sha256'], private=True)
         for p, b in files.items():
             expected = m["managed"].get(p)
             if expected is not None and tree.hash(p) != expected:
@@ -111,7 +153,7 @@ def checkpoint(tree, home, summary, next_steps=(), decisions=(), errors=(), test
             tx.put(p, b, expected)
             m["managed"][p] = digest(b)
         save_manifest(tree, home, tx, m, rel, mh)
-    return {"checkpoint": cp, "transaction": tx.id}
+    return {"checkpoint": cp, "transaction": tx.id, "freshness": assess(tree, m, cp, observed, observation)}
 
 
 def audit(tree, home=None):
@@ -232,7 +274,7 @@ def handoff(tree, home, target, summary, dry_run=False, protocol=None, **kwargs)
         if protocol["outcome"] not in {"continue", "done", "blocked"}:
             raise SafetyError("Invalid outcome")
         obj = {"protocol_version": 1, **protocol, "summary": summary,
-               "completed": [], "next_steps": list(kwargs.get("next_steps", [])),
+               "completed": list(kwargs.get("completed", [])), "next_steps": list(kwargs.get("next_steps", [])),
                "decisions": list(kwargs.get("decisions", [])), "blockers": list(kwargs.get("errors", [])),
                "tests": list(kwargs.get("tests", []))}
         if not 1 <= len(summary) <= 4000 or len(encode(obj)) > 64000:
