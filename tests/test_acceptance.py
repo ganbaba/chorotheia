@@ -12,6 +12,7 @@ import unittest
 from unittest.mock import patch
 
 from chorotheia import core, bootstrap
+from chorotheia import __version__
 from chorotheia.guard import Tree, Transaction, SafetyError, digest, encode, lock
 from chorotheia.memory import restore, redact, git_state
 from chorotheia.adapters import run_hook, hook_configs
@@ -412,6 +413,20 @@ with Tree(sys.argv[1]) as p,Tree(sys.argv[2],private=True) as h,lock(h,p.root):
         self.assertTrue(core.upgrade(self.tree, self.home)["changed"])
         self.assertFalse(core.upgrade(self.tree, self.home)["changed"])
 
+    def test_version_1_0_project_upgrade_preserves_checkpoint(self):
+        self.init()
+        cp = self.cp('Existing project progress', next_steps=['Keep working'])
+        before = self.tree.read('.agent/CHECKPOINT.json')
+        m, rel, mh = core.require(self.tree)
+        with Transaction(self.tree, self.home, 'prior-version-fixture') as tx:
+            m['version'] = '1.0.0'
+            core.save_manifest(self.tree, self.home, tx, m, rel, mh)
+        self.assertEqual(core.upgrade(self.tree, self.home, True)['to_version'], __version__)
+        self.assertTrue(core.upgrade(self.tree, self.home)['changed'])
+        self.assertEqual(before, self.tree.read('.agent/CHECKPOINT.json'))
+        self.assertFalse(core.upgrade(self.tree, self.home)['changed'])
+        self.assertTrue(core.audit(self.tree, self.home)['ok'])
+
     def test_project_uninstall_preserves_original_and_modified(self):
         (self.project / "README.md").write_bytes(b"user-doc")
         self.init()
@@ -510,6 +525,60 @@ class InstallationAcceptance(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
+    def prior_install(self):
+        source = self.root / 'prior-source'
+        for folder in ('chorotheia', 'skills', 'tests'):
+            shutil.copytree(SOURCE / folder, source / folder)
+        shutil.copyfile(SOURCE / 'LICENSE', source / 'LICENSE')
+        (source / 'chorotheia/__init__.py').write_text('__version__ = "1.0.0"\n')
+        with patch('chorotheia.installation.__version__', '1.0.0'):
+            install(source, self.target, self.user)
+
+    def test_version_1_0_global_upgrade_switches_launcher_and_preserves_state(self):
+        self.prior_install()
+        launcher = self.target / 'bin/chorotheia'
+        self.assertEqual(subprocess.check_output([str(launcher), '--version'], text=True).strip(), '1.0.0')
+        old = (self.target / 'core/releases/1.0.0/chorotheia/__init__.py').read_bytes()
+        with Tree(self.target) as h:
+            h.write('projects/existing/private.json', b'keep private memory')
+            before = h.snapshot()
+            self.assertTrue(upgrade_global(self.target, True, SOURCE)['would_update'])
+            self.assertEqual(before, h.snapshot())
+        r = upgrade_global(self.target, False, SOURCE)
+        self.assertTrue(r['changed'])
+        self.assertEqual(subprocess.check_output([str(launcher), '--version'], text=True).strip(), __version__)
+        self.assertEqual(old, (self.target / 'core/releases/1.0.0/chorotheia/__init__.py').read_bytes())
+        self.assertEqual((self.target / 'projects/existing/private.json').read_bytes(), b'keep private memory')
+        self.assertEqual(json.loads((self.target / 'install-receipt.json').read_text())['version'], __version__)
+        self.assertFalse(upgrade_global(self.target, False, SOURCE)['changed'])
+
+    def test_version_upgrade_rollback_restores_executable_permissions(self):
+        self.prior_install()
+        launcher = self.target / 'bin/chorotheia'
+        old = launcher.read_bytes()
+        original = Transaction.put
+        def injected(tx, rel, *args, **kw):
+            if rel == 'config.toml':
+                raise SafetyError('Synthetic failure after launcher switch')
+            return original(tx, rel, *args, **kw)
+        with patch.object(Transaction, 'put', injected):
+            with self.assertRaises(SafetyError):
+                upgrade_global(self.target, False, SOURCE)
+        self.assertEqual(launcher.read_bytes(), old)
+        self.assertEqual(launcher.stat().st_mode & 0o777, 0o700)
+        self.assertEqual(subprocess.check_output([str(launcher), '--version'], text=True).strip(), '1.0.0')
+        self.assertEqual(json.loads((self.target / 'install-receipt.json').read_text())['version'], '1.0.0')
+
+    def test_version_upgrade_refuses_modified_launcher(self):
+        self.prior_install()
+        launcher = self.target / 'bin/chorotheia'
+        launcher.write_bytes(b'#!/bin/sh\n# user customization\n')
+        before = launcher.read_bytes()
+        r = upgrade_global(self.target, False, SOURCE)
+        self.assertIn('bin/chorotheia', r['modified_install_files'])
+        self.assertEqual(before, launcher.read_bytes())
+        self.assertFalse((self.target / ('core/releases/' + __version__)).exists())
+
     def test_install_backups_preserves_configs_launcher_and_sandbox_uninstall(self):
         (self.user / ".codex").mkdir()
         config = self.user / ".codex/config.toml"
@@ -520,7 +589,7 @@ class InstallationAcceptance(unittest.TestCase):
         self.assertEqual(config.read_bytes(), b'user_setting = "keep"\n')
         self.assertTrue((self.target / r["backup"]).exists())
         launcher = self.target / "bin/chorotheia"
-        self.assertEqual(subprocess.check_output([str(launcher), "--version"], text=True).strip(), "1.0.0")
+        self.assertEqual(subprocess.check_output([str(launcher), "--version"], text=True).strip(), __version__)
         self.assertFalse(install(SOURCE, self.target, self.user)["changed"])
         self.assertTrue(upgrade_global(self.target)["ok"])
         (self.user / ".codex/skills/chorotheia/SKILL.md").write_bytes(b"user customized skill")

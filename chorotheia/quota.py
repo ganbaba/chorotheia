@@ -9,6 +9,7 @@ import signal
 import subprocess
 import time
 from .guard import SafetyError, absolute
+from . import __version__
 
 
 def normalize(raw, timestamp=None, source='native'):
@@ -89,7 +90,7 @@ def read_native(binary, timeout=8):
         proc.stdin.flush()
 
     try:
-        send({'id': 1, 'method': 'initialize', 'params': {'clientInfo': {'name': 'chorotheia-quota', 'version': '1.0.0'},
+        send({'id': 1, 'method': 'initialize', 'params': {'clientInfo': {'name': 'chorotheia-quota', 'version': __version__},
                                                                       'capabilities': {'experimentalApi': True}}})
         while time.monotonic() < deadline:
             if not sel.select(max(0, deadline - time.monotonic())):

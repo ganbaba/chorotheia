@@ -11,7 +11,7 @@ import unittest
 from unittest.mock import patch
 from chorotheia import core, monitor
 from chorotheia.adapters import run_hook, hook_configs
-from chorotheia.guard import Tree, SafetyError, Transaction
+from chorotheia.guard import Tree, SafetyError, Transaction, lock
 from chorotheia.memory import restore
 from chorotheia.quota import normalize, evaluate, read_native
 from chorotheia.installation import install, upgrade_global
@@ -379,6 +379,19 @@ class MonitorTests(unittest.TestCase):
         self.assertNotIn('unrelated tool payload', result.stderr)
         self.assertEqual(before, self.home.snapshot())
         self.assertEqual(project, self.tree.snapshot())
+
+    def test_busy_observation_hook_does_not_block_tools_or_write_state(self):
+        self.enable()
+        before = self.home.read(monitor.location(self.m))
+        payload = {'cwd': str(self.project), 'session_id': self.sid, 'transcript_path': str(self.path)}
+        with lock(self.home, self.project):
+            result = subprocess.run([sys.executable, '-B', '-m', 'chorotheia', 'hook', '--agent', 'codex',
+                                     '--event', 'PostToolUse', '--home', str(self.home.root)],
+                                    input=json.dumps(payload), capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout), {})
+        self.assertIn('writer busy', result.stderr)
+        self.assertEqual(before, self.home.read(monitor.location(self.m)))
 
     def old_install(self):
         target, user = self.root / 'installed', self.root / 'user'

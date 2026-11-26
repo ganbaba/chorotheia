@@ -368,10 +368,11 @@ def upgrade(tree, home, dry_run=False):
     receipt(tree, home, m, mh)
     if m["schema"] == 1 and m["version"] == __version__:
         return {"changed": False, "version": __version__}
-    if m["schema"] != 0:
-        raise SafetyError("Only documented schema 0 -> 1 migration supported; no speculative conversion")
+    if m['schema'] != 0 and not (m['schema'] == 1 and m['version'] == '1.0.0' and __version__ == '1.1.0'):
+        raise SafetyError("Only documented schema 0 -> 1 and version 1.0.0 -> 1.1.0 migrations supported")
     if dry_run:
-        return {"dry_run": True, "from_schema": 0, "to_schema": 1}
+        return {"dry_run": True, "from_schema": m['schema'], "to_schema": 1,
+                "from_version": m['version'], "to_version": __version__}
     m["schema"], m["version"] = 1, __version__
     with Transaction(tree, home, "upgrade") as tx:
         save_manifest(tree, home, tx, m, rel, mh)

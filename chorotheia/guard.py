@@ -246,16 +246,18 @@ class Transaction:
 
     def put(self, rel, data, expected=None, mode=0o600, private=False, other=None):
         target = other or (self.home if private else self.tree)
-        old = None
+        old, before_mode = None, None
         if expected is None and target.exists(rel):
             raise SafetyError("Exclusive creation target occupied: " + rel)
         if expected is not None:
             old = target.read(rel)
             if digest(old) != expected:
                 raise SafetyError("Concurrent edit before transaction: " + rel)
+            with target.parent(rel) as (fd, name):
+                before_mode = stat.S_IMODE(os.stat(name, dir_fd=fd, follow_symlinks=False).st_mode)
         entry = {"path": rel, "private": private, "external_root": str(other.root) if other else None,
                  "applied": False, "before": base64.b64encode(old).decode() if old is not None else None,
-                 "after": digest(data), "before_hash": expected}
+                 "after": digest(data), "before_hash": expected, "before_mode": before_mode}
         self.doc["entries"].append(entry)
         self.save()  # Write-ahead record survives interruption.
         dirs = self.doc["external_directories"].setdefault(str(other.root), []) if other else self.doc["directories"]
@@ -282,7 +284,7 @@ class Transaction:
                 if e["before"] is None:
                     target.remove(p, e["after"])
                 else:
-                    target.write(p, base64.b64decode(e["before"]), e["after"])
+                    target.write(p, base64.b64decode(e["before"]), e["after"], mode=e.get('before_mode') or 0o600)
             except (OSError, SafetyError):
                 preserved.append(p)
             finally:

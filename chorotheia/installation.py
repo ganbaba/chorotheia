@@ -12,6 +12,14 @@ from .adapters import CAPABILITIES, hook_configs
 from .core import now
 
 
+def launcher_bytes(target, release):
+    # -I excludes the current project and PYTHONPATH. Otherwise running in a
+    # checkout containing chorotheia could silently execute uninstalled code.
+    code = 'import runpy,sys;sys.path.insert(0,' + ascii(str(target / release)) + ');runpy.run_module("chorotheia",run_name="__main__")'
+    return ('#!/bin/sh\nCHOROTHEIA_HOME=' + shlex.quote(str(target)) + ' exec ' + shlex.quote(sys.executable) +
+            ' -I -B -c ' + shlex.quote(code) + ' "$@"\n').encode()
+
+
 def install(source, target, user_home=None, register=True, dry_run=False, handoff_skill=None):
     source = absolute(source)
     target = absolute(target)
@@ -42,7 +50,7 @@ def install(source, target, user_home=None, register=True, dry_run=False, handof
         if home.exists("install-receipt.json"):
             r = json.loads(home.read("install-receipt.json"))
             if r.get("version") != __version__:
-                raise SafetyError("Different installed version; explicit supported upgrade required")
+                raise SafetyError("Different installed version; from the new source directory run python3 -B -m chorotheia upgrade --global-install --source /absolute/source --dry-run")
             if any(home.hash(p) != sha for p, sha in r["files"].items()):
                 raise SafetyError("Existing installation is incomplete or modified; inspect upgrade --global-install before repair")
             return {"installed": True, "changed": False, "version": __version__, "target": str(target)}
@@ -65,10 +73,8 @@ def install(source, target, user_home=None, register=True, dry_run=False, handof
         for p in sorted((source / "tests").glob("*.py")):
             files["tests/" + p.name] = p.read_bytes()
         files["VERSION"] = (__version__ + "\n").encode()
-        files["config.toml"] = ("version = \"1.0.0\"\nlocal_first = true\ninitial_budget = 2400\nauto_init = \"git-project-session-start\"\nprivate_state = \"global-only\"\n").encode()
-        launcher = ("#!/bin/sh\nPYTHONDONTWRITEBYTECODE=1 PYTHONPATH=" + shlex.quote(str(target / release)) +
-                    " CHOROTHEIA_HOME=" + shlex.quote(str(target)) + " exec " + shlex.quote(sys.executable) +
-                    " -B -m chorotheia \"$@\"\n").encode()
+        files["config.toml"] = ("version = " + json.dumps(__version__) + "\nlocal_first = true\ninitial_budget = 2400\nauto_init = \"git-project-session-start\"\nprivate_state = \"global-only\"\n").encode()
+        launcher = launcher_bytes(target, release)
         files["bin/chorotheia"] = launcher
         files["skills/chorotheia/SKILL.md"] = (source / "skills/chorotheia/SKILL.md").read_bytes()
         files["adapters/capabilities.json"] = encode(CAPABILITIES)
@@ -175,12 +181,14 @@ def uninstall_global(target, dry_run=False):
 def upgrade_global(target, dry_run=False, source=None):
     with Tree(target, private=True) as home, (contextlib.nullcontext() if dry_run else lock(home, "global-install")):
         r = json.loads(home.read("install-receipt.json"))
-        if r["version"] != __version__:
+        prior = r['version']
+        if prior not in {__version__, '1.0.0'}:
             raise SafetyError("No released predecessor migration supplied; unsupported versions are preserved")
         drift = [p for p, sha in r["files"].items() if home.hash(p) != sha]
         if drift or not source:
             return {"version": __version__, "changed": False, "dry_run": dry_run, "modified_install_files": drift,
-                    "ok": not drift, "note": "v1.0.0 current; --source accepts a reviewed local v1.0.0 maintenance bundle, no network update"}
+                    "installed_version": prior, "ok": not drift,
+                    "note": "--source accepts reviewed local source for " + __version__ + "; no network update"}
         from .core import check_pending
         check_pending(home, home.root)
         import ast
@@ -194,7 +202,7 @@ def upgrade_global(target, dry_run=False, source=None):
                         and any(isinstance(t, ast.Name) and t.id == "__version__" for t in n.targets)
                         and isinstance(n.value, ast.Constant)]
             if versions != [__version__]:
-                raise SafetyError("Only a local v1.0.0 maintenance bundle is supported; preserve other versions")
+                raise SafetyError("Source version must match this upgrader: " + __version__)
             for p in sorted((source / "chorotheia").glob("*.py")):
                 b = src.read("chorotheia/" + p.name)
                 try:
@@ -202,7 +210,8 @@ def upgrade_global(target, dry_run=False, source=None):
                 except SyntaxError:
                     raise SafetyError("Invalid Python syntax in maintenance source: " + p.name)
                 updates[release + "/chorotheia/" + p.name] = b
-            required = [k for k in r["files"] if k.startswith(release + "/chorotheia/")]
+            old_prefix = 'core/releases/' + prior + '/chorotheia/'
+            required = [release + '/chorotheia/' + k[len(old_prefix):] for k in r['files'] if k.startswith(old_prefix)]
             if not set(required) <= set(updates):
                 raise SafetyError("Maintenance source is missing installed modules")
             for p in sorted((source / "tests").glob("*.py")):
@@ -212,12 +221,19 @@ def upgrade_global(target, dry_run=False, source=None):
             updates['adapters/capabilities.json'] = encode(CAPABILITIES)
             if src.exists("LICENSE"):
                 updates["LICENSE"] = src.read("LICENSE")
+        updates['bin/chorotheia'] = launcher_bytes(home.root, release)
+        if prior != __version__:
+            # Keep the old release namespace intact; switch only receipt-owned
+            # launcher/metadata in the same backed-up transaction.
+            updates['VERSION'] = (__version__ + '\n').encode()
+            updates['config.toml'] = home.read('config.toml').replace(
+                ('version = ' + json.dumps(prior)).encode(), ('version = ' + json.dumps(__version__)).encode(), 1)
         changed = {p: b for p, b in updates.items() if digest(b) != r["files"].get(p)}
         if dry_run or not changed:
             return {"dry_run": dry_run, "changed": False, "would_update": list(changed), "version": __version__}
         with Tree(r["user_home"]) as user, Transaction(home, home, "maintenance-upgrade") as tx:
             for p, b in changed.items():
-                tx.put(p, b, r["files"].get(p))
+                tx.put(p, b, r["files"].get(p), mode=0o700 if p == 'bin/chorotheia' else 0o600)
                 r["files"][p] = digest(b)
             skill = updates["skills/chorotheia/SKILL.md"]
             preserved = []
@@ -237,6 +253,7 @@ def upgrade_global(target, dry_run=False, source=None):
                     else:
                         preserved.append(p)
             r["maintenance_upgraded_at"] = now()
+            r['version'] = __version__
             tx.put("install-receipt.json", encode(r), home.hash("install-receipt.json"))
         return {"version": __version__, "changed": True, "updated": list(changed),
                 "preserved_modified_registrations": preserved, "backup_transaction": tx.id}

@@ -12,6 +12,7 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'scripts'))
 from build_release import build, sources
+from chorotheia import __version__ as VERSION
 from publish_release import publish
 
 
@@ -20,12 +21,12 @@ class ReleaseTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             a, b = Path(temp)/'a', Path(temp)/'b'
             self.assertEqual(build(ROOT, a), build(ROOT, b))
-            with zipfile.ZipFile(a/'chorotheia-1.0.0-source.zip') as z:
+            with zipfile.ZipFile(a/f'chorotheia-{VERSION}-source.zip') as z:
                 names = z.namelist()
                 self.assertTrue(any(n.endswith('/chorotheia/core.py') for n in names))
                 self.assertFalse(any('/.agent/' in n or '/backups/' in n for n in names))
                 self.assertTrue(all('..' not in Path(n).parts for n in names))
-            with tarfile.open(a/'chorotheia-1.0.0-source.tar.gz') as t:
+            with tarfile.open(a/f'chorotheia-{VERSION}-source.tar.gz') as t:
                 self.assertEqual(sorted(t.getnames()), sorted(names))
 
     def test_tampered_source_is_refused(self):
@@ -41,11 +42,11 @@ class ReleaseTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             output = Path(temp)
             build(ROOT, output)
-            with zipfile.ZipFile(output/'chorotheia-1.0.0-source.zip') as z:
-                self.assertEqual(z.read('chorotheia-1.0.0/LICENSE'), license_bytes)
-            with tarfile.open(output/'chorotheia-1.0.0-source.tar.gz') as t:
-                self.assertEqual(t.extractfile('chorotheia-1.0.0/LICENSE').read(), license_bytes)
-            with zipfile.ZipFile(output/'chorotheia-skill-1.0.0.zip') as z:
+            with zipfile.ZipFile(output/f'chorotheia-{VERSION}-source.zip') as z:
+                self.assertEqual(z.read(f'chorotheia-{VERSION}/LICENSE'), license_bytes)
+            with tarfile.open(output/f'chorotheia-{VERSION}-source.tar.gz') as t:
+                self.assertEqual(t.extractfile(f'chorotheia-{VERSION}/LICENSE').read(), license_bytes)
+            with zipfile.ZipFile(output/f'chorotheia-skill-{VERSION}.zip') as z:
                 self.assertEqual(z.read('chorotheia/LICENSE'), license_bytes)
 
     def test_manifest_traversal_and_symlink_are_refused(self):

@@ -1,4 +1,4 @@
-# Chorotheia v1.0.0
+# Chorotheia v1.1.0
 
 Memory beyond context. 本地优先、跨 Agent 的项目记忆与阶段接力工具。
 
@@ -217,7 +217,7 @@ chorotheia uninstall --project /absolute/project --dry-run
 chorotheia uninstall --global-install --dry-run
 ```
 
-`compact` 是可检索的逻辑归档，保留不可变原件，不节省磁盘。项目 upgrade 支持兼容字段布局的 schema 0 → 1，并已用合成旧版夹具验证；没有旧 UACS/Letheia 发布格式可核验，未知格式拒绝迁移。全局 upgrade 默认检查当前版本；`--source /absolute/reviewed/source` 支持本地 v1.0.0 维护包的哈希保护更新、语法检查、备份及幂等更新，不自动下载版本，不推测未来迁移。
+`compact` 是可检索的逻辑归档，保留不可变原件，不节省磁盘。项目 upgrade 支持兼容字段布局的 schema 0 → 1，并已用合成旧版夹具验证；没有旧 UACS/Letheia 发布格式可核验，未知格式拒绝迁移。全局 upgrade 默认检查当前版本；`--source /absolute/reviewed/source` 支持本地 v1.1.0 安装或维护包的哈希保护更新、语法检查、备份及幂等更新，不自动下载版本，不推测未来迁移。
 
 卸载预览不会移除内容。实际卸载必须由你明确执行不带 `--dry-run` 的命令；只移除安装记录中内容仍匹配的自有文件，保留用户编辑、私有记忆和备份。不删除无关文件或递归清理目录。正式安装未执行卸载；卸载验收均在临时配置目录中完成。
 
@@ -242,3 +242,17 @@ python3 -B -m unittest discover -s tests -v
 公开验证结果见 `docs/TESTING.md` 和 `docs/verification.json`。含本机路径的原始部署记录不随源码公开。测试只在临时项目及临时配置目录运行；Git 提交仅用于构造临时历史夹具，没有提交用户项目。
 
 超过 128 KB 的原生事件输入只进行流式丢弃并输出诊断，不保留工具载荷、不阻断工具调用；随后受支持的事件可从对话游标继续观察。这类跳过不代表已读取或核对该次事件。
+
+## 从 v1.0.0 升级到 v1.1.0
+
+下载并校验新源码包，在解压后的源码目录执行新版本升级器（旧 CLI 不理解未来版本）：
+
+```sh
+python3 -B -m chorotheia upgrade --global-install --source "$PWD" --dry-run
+python3 -B -m chorotheia upgrade --global-install --source "$PWD"
+~/.chorotheia/bin/chorotheia --version
+```
+
+升级器只接受已知 1.0.0 前驱或相同版本，核验安装记录和全部自有文件哈希。保留旧 core/releases/1.0.0 目录，在同一事务内备份并切换启动器、VERSION 和配置版本元数据，保留其他设置、私有记忆和 Hook 信任记录。修改过的安装文件会使升级拒绝写入；修改过的注册 Skill/Hooks 保留并报告。项目 schema 仍为 1，旧笔记可直接读取；可显式执行 `chorotheia upgrade --project /absolute/project --dry-run` 后更新项目版本，不改写历史检查点。未知旧格式拒绝迁移。
+
+启动器使用隔离 Python 环境并显式加载已安装的版本目录，忽略当前项目及 PYTHONPATH 对模块解析的覆盖；从源码目录升级时使用前述新版本模块命令。观察 Hook 遇到项目写锁竞争时有限重试后给出跳过诊断，不把观察失败变成业务工具失败。

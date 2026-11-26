@@ -1,8 +1,8 @@
 {
-  "version": "1.0.0",
+  "version": "1.1.0",
   "date": "2026-11-26",
   "test_environment": "macOS arm64, Python 3.9.6; isolated temporary projects/config homes",
-  "tests_run": 112,
+  "tests_run": 117,
   "failures": 0,
   "errors": 0,
   "skipped": 0,
@@ -454,6 +454,26 @@
     },
     {
       "test": "test_oversized_hook_event_is_diagnostic_not_blocking",
+      "status": "passed"
+    },
+    {
+      "test": "test_version_1_0_project_upgrade_preserves_checkpoint",
+      "status": "passed"
+    },
+    {
+      "test": "test_version_1_0_global_upgrade_switches_launcher_and_preserves_state",
+      "status": "passed"
+    },
+    {
+      "test": "test_version_upgrade_rollback_restores_executable_permissions",
+      "status": "passed"
+    },
+    {
+      "test": "test_version_upgrade_refuses_modified_launcher",
+      "status": "passed"
+    },
+    {
+      "test": "test_busy_observation_hook_does_not_block_tools_or_write_state",
       "status": "passed"
     }
   ],

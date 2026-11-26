@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 import sys
+import time
 from . import __version__
 from .guard import Tree, SafetyError, lock
 from . import core
@@ -67,7 +68,7 @@ def parser():
         if cmd in ["uninstall", "upgrade"]:
             s.add_argument("--global-install", action="store_true")
         if cmd == "upgrade":
-            s.add_argument("--source", help="Local v1.0.0 maintenance source directory; no network download")
+            s.add_argument("--source", help="Reviewed local source directory matching this upgrader; no network download")
     return p
 
 
@@ -93,8 +94,17 @@ def dispatch(args):
         payload = json.loads(raw or b"{}")
         if not isinstance(payload, dict):
             raise SafetyError("Hook payload must be an object")
-        with Tree(args.home, create=True, private=True) as home:
-            return run_hook(home, args.agent, args.event, payload)
+        for attempt in range(4):
+            try:
+                with Tree(args.home, create=True, private=True) as home:
+                    return run_hook(home, args.agent, args.event, payload)
+            except SafetyError as error:
+                if not str(error).startswith('Another Chorotheia writer holds'):
+                    raise
+                if attempt == 3:
+                    print('Chorotheia observation skipped: project writer busy; next event can catch up.', file=sys.stderr)
+                    return {}
+                time.sleep(0.05 * (attempt + 1))
     read_only = cmd in {"restore", "recall", "status", "audit"} or args.dry_run or getattr(args, "mode", None) == "audit"
     if cmd == 'monitor' and not (args.transcript or args.refresh_quota or args.monitor_enabled is not None or
                                   args.quota_warning is not None or args.quota_critical is not None):

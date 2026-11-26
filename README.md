@@ -20,7 +20,7 @@
 [![Local-first](https://img.shields.io/badge/Local--first-D8C6A0?labelColor=30363D)](docs/ARCHITECTURE.md)
 [![Agent-agnostic](https://img.shields.io/badge/Agent--agnostic-8EAFC8?labelColor=30363D)](docs/ARCHITECTURE.md)
 
-[安装](#安装) · [使用](#使用) · [正式版本](https://github.com/ganbaba/chorotheia/releases/tag/v1.0.0) · [操作文档](docs/OPERATIONS.md) · [架构](docs/ARCHITECTURE.md) · [测试](docs/TESTING.md) · [Skill](skills/chorotheia/SKILL.md)
+[安装](#安装) · [使用](#使用) · [正式版本](https://github.com/ganbaba/chorotheia/releases/tag/v1.1.0) · [操作文档](docs/OPERATIONS.md) · [架构](docs/ARCHITECTURE.md) · [测试](docs/TESTING.md) · [Skill](skills/chorotheia/SKILL.md)
 
 </div>
 
@@ -67,7 +67,7 @@ chorotheia audit --project /absolute/project
 
 ## Agent 接入与 Handoff
 
-| Agent | 配置能力 | v1.0.0 验证边界 |
+| Agent | 配置能力 | v1.1.0 验证边界 |
 |---|---|---|
 | Codex | SessionStart、PreCompact、PostCompact、Stop | 原生发现/解析已验证；信任审阅及真实会话自动触发仍需目标环境验收 |
 | Antigravity | SessionStart、Stop、全局规则与 Skill | 压缩专用事件未确认，使用阶段检查点降级；真实 App 触发待验收 |

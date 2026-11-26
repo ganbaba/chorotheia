@@ -1,41 +1,46 @@
-# Chorotheia v1.0.0
+# Chorotheia v1.1.0
 
-**Memory beyond context.**
+**Memory beyond context.** · One memory. Any agent.
 
-Universal Agent Context & Memory System · One memory. Any agent.
+本次发布将字段优先恢复、阶段进度复核、可见讨论观察及额度保护纳入正式版本，沿用 MIT 许可证、Python 3.9+ 标准库和本地优先设计。
 
-让记忆超越上下文的边界。
+## 新增与改进
 
-## 首个正式版本
+- 优先恢复目标、阶段、下一步和阻塞项，去除重复摘要；按完整条目或句子加载，并提供省略字段的来源。
+- 区分自动快照与显式核对，比较 Git 内容指纹；支持目标、完成事项和阶段开始/结束记录。
+- 按项目启用 Codex 可见讨论观察，生成带来源的推断候选；精确核对令牌避免把“读过消息”误当成“已更新进度”。
+- 可配置额度提醒，默认已用 80% 提醒、95% 紧急提醒；支持官方额度只读刷新。额度耗尽或模型失败时仅保存已有笔记，标记“尚未总结的进展”。
+- 观察状态和候选片段留在本机私有目录；不调用额外模型 API，不默认启动守护进程。
+- 超大工具事件流式丢弃；写锁忙时有限重试后给出诊断，避免观察 Hook 阻断正常工具调用。
+- 受保护的 v1.0.0 → v1.1.0 迁移：保留旧程序，事务备份并切换启动器，失败回滚恢复可执行权限；启动器隔离加载安装目录，避免当前项目覆盖已安装代码。
 
-- Local-first、Agent-agnostic 的 Python 3.9+ CLI，运行只使用标准库、Markdown、JSON 与只读 Git；没有数据库、守护进程或默认云端记忆服务。
-- 新旧项目 auto/new/retrofit 初始化，现有文档与代码保留，冲突隔离与幂等补充。
-- 持久化记忆、不可变检查点、L0/L1 恢复、来源检索、逻辑归档及跨 Agent 交接笔记。
-- Core、Bootstrap、Memory、Checkpoint、Restore、Handoff、Guard、Compact、Recall、Hooks、Adapters、Doctor 十二个正式功能模块。
-- 独占创建、原子写入、fsync、合作文件锁、SHA-256 完整性验证、私有凭据、事务回滚、保守修复、维护升级与安全卸载。
-- Codex、Antigravity、Copilot 的能力明确接入，以及原 Universal Handoff 协议 v1 导出兼容。
-- 正式字标、品牌定义、安装说明、操作文档、逐项验证记录、确定性源码归档与 SHA-256 校验文件。
+## 下载与安装
 
-## 安装
+附件包含源码 ZIP、源码 tar.gz、独立 Skill ZIP 和 SHA256SUMS.txt。先校验 SHA-256；独立 Skill 仍需要完整 CLI。
 
-下载 `chorotheia-1.0.0-source.zip` 或 `.tar.gz`，依据 `SHA256SUMS.txt` 校验，解压后运行：
+新安装：
 
 ```sh
 python3 -B install.py --dry-run
 python3 -B install.py
-~/.chorotheia/bin/chorotheia doctor
 ```
 
-安装目录为 `~/.chorotheia/`。仅 Skill 压缩包包含指引，完整功能仍需安装 CLI。已有配置冲突会保留并报告，不自动覆盖或批准原生 Hook 信任。
+已有 v1.0.0 安装时，在新源码解压目录运行新版本升级器：
 
-## 验证范围与已知限制
+```sh
+python3 -B -m chorotheia upgrade --global-install --source "$PWD" --dry-run
+python3 -B -m chorotheia upgrade --global-install --source "$PWD"
+~/.chorotheia/bin/chorotheia --version
+```
 
-初始版本通过 62 项本地测试。MIT 许可维护更新后的当前验证结果见仓库测试文档和对应 macOS/Linux Actions 运行记录，不将未执行的检查列为通过。
+安装文件被用户修改时拒绝覆盖；修改过的注册 Skill/Hooks 保留并报告。项目历史检查点不重写，私有记忆与备份保留。详见 docs/OPERATIONS.md。
 
-原生 Hooks 自动触发尚未端到端验收；Codex 需要原生信任审阅，Antigravity 压缩专用事件未确认，Copilot 旧 Local harness/远程环境不作兼容承诺。真实跨服务自动接力尚未联调。Hook 只能保存已记录状态，不能读取隐藏思考或未保存内容。
+## 验证与边界
 
-敏感过滤为启发式；外部编辑器不受合作锁约束，最终检查与替换/删除之间仍有极小竞态。恢复不恢复业务源码，compact 不删除历史原件。未知旧格式及缺少本机私有凭据的跨机器导入有明确限制。
+本地隔离测试和 Linux/macOS 发布工作流验证源码及确定性归档，机器可读结果见 docs/verification.json。真实账户只进行只读额度查询；额度耗尽和模型失败使用合成夹具，不耗尽真实额度。
 
-本仓库现采用 [MIT 许可证](LICENSE)。原 v1.0.0 标签及既有发布附件保持原样，新增许可证随当前源码和后续打包内容提供。
+新增 UserPromptSubmit、PostToolUse、PreModelRequest、PostModelRequest 需要 Codex 原生信任审阅。模型请求钩子仅提供诊断，模型可见提醒通过支持的事件和恢复入口发送；无法打断长模型请求，也不能保证单次大请求不会跨过阈值。
 
-商标查重尚未完成；品牌采用既定名称，不宣称注册商标。未发布到 PyPI/npm。详细范围见 README 和操作文档。
+对话观察默认关闭，首次绑定从当前末尾开始。候选为启发式推断，必须核对；过期、重置或不可用的额度证据为未知。自动讨论/额度适配目前仅验证 Codex，Antigravity/Copilot 继续使用阶段检查点降级。真实跨服务自动接力尚未联调。
+
+恢复不恢复业务源码或未保存文件；敏感过滤为启发式；合作锁不能消除外部编辑器的全部竞态。未知旧格式拒绝猜测迁移。既有 v1.0.0 标签和附件保持不变。商标查重尚未完成，未发布到 PyPI/npm。

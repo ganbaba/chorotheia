@@ -1,6 +1,6 @@
 # 测试与验证范围
 
-2026-11-26，macOS arm64、Python 3.9.6。对包含字段优先恢复与进度复核提示的维护实现运行 **112 项测试，全部通过**，无失败、错误或跳过（原 64 项、字段优先恢复 17 项及对话/额度观察 31 项）。测试仅操作临时项目和临时配置目录，使用标准库、本地进程和合成 Agent 输入；不发送真实模型请求。
+2026-11-26，macOS arm64、Python 3.9.6。对包含字段优先恢复与进度复核提示的维护实现运行 **117 项测试，全部通过**，无失败、错误或跳过（原 112 项及本次版本迁移、回滚权限和观察锁竞争 5 项）。测试仅操作临时项目和临时配置目录，使用标准库、本地进程和合成 Agent 输入；不发送真实模型请求。
 
 机器可读记录见 [verification.json](verification.json)。含个人绝对路径的本机安装记录、备份、原生探测输出和项目记忆未公开。
 
@@ -150,3 +150,17 @@ POSIX 锁仅约束合作写者，不能消除外部编辑器最终检查与替�
 | 110 | test_native_rpc_timeout_is_bounded_and_process_is_reaped | passed |
 | 111 | test_stale_private_state_write_preserves_external_change | passed |
 | 112 | test_oversized_hook_event_is_diagnostic_not_blocking | passed |
+
+## v1.1.0 版本迁移验证
+
+验证已知 v1.0.0 安装及 schema 1 项目迁移，保留旧程序、私有笔记和历史检查点；覆盖预览零写入、启动器权限、失败回滚、用户修改拒绝覆盖和重复升级幂等性。观察 Hook 的写锁竞争采用有限重试及非阻塞诊断。
+
+| # | 测试名称 | 结果 |
+|---|---|---|
+| 113 | test_version_1_0_project_upgrade_preserves_checkpoint | passed |
+| 114 | test_version_1_0_global_upgrade_switches_launcher_and_preserves_state | passed |
+| 115 | test_version_upgrade_rollback_restores_executable_permissions | passed |
+| 116 | test_version_upgrade_refuses_modified_launcher | passed |
+| 117 | test_busy_observation_hook_does_not_block_tools_or_write_state | passed |
+
+本地另从生成的 v1.1.0 源码 ZIP 实际新安装，并从原 v1.0.0 标签源码创建沙盒安装后升级。已确认旧程序目录、历史检查点、未完成业务文件保留，项目版本迁移及重复升级通过；此验收未升级正式全局安装。
