@@ -122,6 +122,8 @@ def restore(tree, manifest, budget=2400, monitoring=None):
 
     add('Goal', [cp.get('goal') or cp.get('summary')])
     if monitoring is not None:
+        if monitoring.get('enabled') and monitoring.get('model_failure'):
+            add('Recovery', ['上轮中断：先运行 recover，核对讨论、改动、工具结果与运行中任务，再记录恢复结果；不自动确认失败。'], 'recover (read-only plan)')
         # Full actionable notice is available through monitor; include a small
         # high-priority marker here so quota warnings survive tiny byte budgets.
         if monitoring.get('unsummarized_progress'):

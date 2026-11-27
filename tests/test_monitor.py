@@ -252,6 +252,163 @@ class MonitorTests(unittest.TestCase):
         self.scan()
         self.assertEqual(self.report()['pending_messages'], 1)
 
+    def catch_up(self):
+        for _ in range(40):
+            report = self.scan()
+            if not report['source_backlog']:
+                return report
+        self.fail('Bounded scans did not reach the end of the fixture')
+
+    def quota_event(self, used):
+        self.write({'type': 'event_msg', 'timestamp': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                    'payload': {'type': 'token_count', 'rate_limits': {'primary': {'used_percent': used}}}})
+
+    def test_large_tool_output_does_not_hide_quota_hook_reminders(self):
+        self.enable()
+        reviewed = self.cp(summary='Known reviewed notes')['checkpoint']
+        for used, label in [(80, 'warning'), (95, 'critical')]:
+            self.write({'type': 'response_item', 'payload': {'type': 'custom_tool_call_output',
+                        'output': 'PRIVATE-TOOL-OUTPUT' * 70000}})
+            self.quota_event(used)
+            outputs = []
+            for _ in range(4):
+                outputs.append(run_hook(self.home, 'codex', 'PostToolUse',
+                               {'cwd': str(self.project), 'session_id': self.sid, 'transcript_path': str(self.path)}))
+                if not self.report()['source_backlog']:
+                    break
+            self.assertEqual(self.report()['quota']['state'], label)
+            self.assertIn('Quota ' + label, json.dumps(outputs))
+        data = monitor.load(self.home, self.m)
+        self.assertNotIn('PRIVATE-TOOL-OUTPUT', json.dumps(data))
+        self.assertEqual(self.report()['pending_messages'], 0)
+        self.assertFalse(self.report()['source_gap'])
+        self.assertEqual(json.loads(self.tree.read('.agent/CHECKPOINT.json')), reviewed)
+
+    def test_large_visible_message_retains_offsets_and_needs_explicit_review(self):
+        self.enable()
+        start = self.path.stat().st_size
+        self.message('x' * (monitor.SCAN_BYTES + 123) + '决定采用本地方案。')
+        end = self.path.stat().st_size
+        r = self.catch_up()
+        c = self.report(True)['streams'][0]['candidates'][0]
+        self.assertEqual((c['byte_start'], c['byte_end']), (start, end))
+        self.assertEqual(r['pending_messages'], 1)
+        self.assertLess(len(self.home.read(monitor.location(self.m))), 6000)
+        self.assertEqual(self.scan()['pending_messages'], 1)
+        self.cp(review_discussion=[self.token()])
+        self.assertEqual(self.report()['pending_messages'], 0)
+
+    def test_large_partial_record_waits_for_newline_without_duplicate_discussion(self):
+        self.enable()
+        start = self.path.stat().st_size
+        raw = json.dumps({'type': 'response_item', 'payload': {'type': 'message', 'role': 'user',
+                         'content': [{'type': 'input_text', 'text': '决定 ' + 'x' * (monitor.SCAN_BYTES + 20)}]}})
+        with self.path.open('a') as f:
+            f.write(raw)
+        r = self.scan()
+        self.assertEqual(r['streams'][0]['observed_cursor'], start)
+        self.assertTrue(r['source_backlog'])
+        self.assertFalse(r['source_gap'])
+        with self.path.open('a') as f:
+            f.write('\n')
+        self.quota_event(96)
+        r = self.catch_up()
+        self.assertEqual(r['pending_messages'], 1)
+        self.assertEqual(r['quota']['state'], 'critical')
+
+    def test_over_cap_record_drains_with_explicit_gap_and_later_quota(self):
+        self.enable()
+        self.message('决定先保留这条讨论')
+        self.scan()
+        reviewed = self.report()['streams'][0]['reviewed_cursor']
+        start = self.path.stat().st_size
+        self.write({'type': 'response_item', 'payload': {'type': 'message', 'role': 'user',
+                    'content': [{'type': 'input_text', 'text': 'UNPARSED-PRIVATE ' * 40000}]}})
+        end = self.path.stat().st_size
+        # A skipped record could be a turn_context: suppress attribution until
+        # a parsed context arrives, but continue reading account-wide quotas.
+        self.message('决定归属未知，不能导入')
+        self.write({'type': 'turn_context', 'payload': {'cwd': str(self.project)}})
+        self.message('下一步归属已知')
+        self.quota_event(95)
+        with patch.object(monitor, 'MAX_RECORD_BYTES', 128000), patch.object(monitor, 'SCAN_BYTES', 64000):
+            r = self.catch_up()
+        self.assertEqual(r['quota']['state'], 'critical')
+        self.assertEqual(r['pending_messages'], 2)
+        s = self.report(True)['streams'][0]
+        self.assertEqual(s['oversized_records'], 1)
+        self.assertFalse(s['discarding_record'])
+        self.assertEqual(s['last_oversized_record'], {'byte_start': start, 'byte_end': end, 'complete': True})
+        self.assertEqual(s['reviewed_cursor'], reviewed)
+        self.assertNotIn('UNPARSED-PRIVATE', json.dumps(monitor.load(self.home, self.m)))
+        with self.assertRaises(SafetyError):
+            self.cp(review_discussion=[self.token()])
+
+    def test_over_cap_partial_record_keeps_drain_state_until_terminated(self):
+        self.enable()
+        with self.path.open('ab') as f:
+            f.write(b'x' * 300000)
+        with patch.object(monitor, 'MAX_RECORD_BYTES', 128000), patch.object(monitor, 'SCAN_BYTES', 64000):
+            for _ in range(5):
+                self.scan()
+            s = self.report(True)['streams'][0]
+            self.assertTrue(s['discarding_record'])
+            self.assertFalse(s['last_oversized_record']['complete'])
+            self.assertTrue(s['backlog'])
+            with self.path.open('ab') as f:
+                f.write(b'\n')
+            self.quota_event(80)
+            r = self.catch_up()
+        self.assertEqual(r['quota']['state'], 'warning')
+        self.assertTrue(r['source_gap'])
+        self.assertFalse(r['streams'][0]['discarding_record'])
+
+    def test_over_cap_drain_still_refuses_cursor_anchor_rewrite(self):
+        self.enable()
+        with self.path.open('ab') as f:
+            f.write(b'x' * 300000)
+        with patch.object(monitor, 'MAX_RECORD_BYTES', 128000), patch.object(monitor, 'SCAN_BYTES', 64000):
+            r = self.scan()
+            cursor = r['streams'][0]['observed_cursor']
+            before = self.home.read(monitor.location(self.m))
+            with self.path.open('r+b') as f:
+                f.seek(cursor - 1)
+                f.write(b'y')
+            with self.assertRaises(SafetyError):
+                self.scan()
+        self.assertEqual(before, self.home.read(monitor.location(self.m)))
+
+    def test_malformed_long_record_does_not_hide_later_quota_or_import_unknown_context(self):
+        self.enable()
+        with self.path.open('ab') as f:
+            f.write(b'x' * (monitor.SCAN_BYTES + 100) + b'\n')
+        self.message('决定归属未知')
+        self.quota_event(95)
+        r = self.catch_up()
+        self.assertTrue(r['source_gap'])
+        self.assertEqual(r['quota']['state'], 'critical')
+        self.assertEqual(r['pending_messages'], 0)
+
+    def test_fixed_scan_resumes_old_error_without_resetting_review_or_failure(self):
+        self.enable()
+        self.message('决定已核对的旧讨论')
+        self.scan()
+        self.cp(review_discussion=[self.token()])
+        reviewed = self.report()['streams'][0]['reviewed_cursor']
+        self.write({'type': 'response_item', 'payload': {'type': 'custom_tool_call_output',
+                    'output': 'x' * (monitor.SCAN_BYTES + 50000)}})
+        self.message('决定尚未核对的新讨论')
+        self.quota_event(95)
+        monitor.source_failure(self.home, self.m, self.project, self.sid)
+        monitor.model_outcome(self.home, self.m, self.project, {'status': 'failed', 'error': 'usage limit'})
+        r = self.catch_up()
+        self.assertFalse(r['source_errors'])
+        self.assertFalse(r['source_gap'])
+        self.assertEqual(r['pending_messages'], 1)
+        self.assertEqual(r['streams'][0]['reviewed_cursor'], reviewed)
+        self.assertEqual(r['model_failure']['reason'], 'quota_or_rate_limit')
+        self.assertEqual(r['quota']['state'], 'critical')
+
     def test_truncation_and_anchor_rewrite_preserve_cursor(self):
         self.enable()
         self.message()

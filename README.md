@@ -20,7 +20,9 @@
 [![Local-first](https://img.shields.io/badge/Local--first-D8C6A0?labelColor=30363D)](docs/ARCHITECTURE.md)
 [![Agent-agnostic](https://img.shields.io/badge/Agent--agnostic-8EAFC8?labelColor=30363D)](docs/ARCHITECTURE.md)
 
-[安装](#安装) · [使用](#使用) · [正式版本](https://github.com/ganbaba/chorotheia/releases/tag/v1.1.0) · [操作文档](docs/OPERATIONS.md) · [架构](docs/ARCHITECTURE.md) · [测试](docs/TESTING.md) · [Skill](skills/chorotheia/SKILL.md)
+[安装](#安装) · [使用](#使用) · [**最新版本 v1.2.0**](https://github.com/ganbaba/chorotheia/releases/tag/v1.2.0) · [操作文档](docs/OPERATIONS.md) · [架构](docs/ARCHITECTURE.md) · [测试](docs/TESTING.md) · [Skill](skills/chorotheia/SKILL.md)
+
+**v1.2.0：中断后的恢复核对入口、超长转录扫描修复，以及有原始凭据的本机目录迁移。**
 
 </div>
 
@@ -51,6 +53,7 @@ export PATH="$HOME/.chorotheia/bin:$PATH"  # 仅当前终端
 chorotheia init --project /absolute/project --dry-run
 chorotheia init --project /absolute/project
 chorotheia restore --project /absolute/project --text --budget 2400
+chorotheia recover --project /absolute/project --text  # 中断后的只读恢复核对清单
 chorotheia checkpoint --project /absolute/project \
   --summary '已观察的工作状态' --next '下一步' --test '实际命令及结果，或未执行原因'
 chorotheia handoff --project /absolute/project --to antigravity \
@@ -59,7 +62,7 @@ chorotheia recall '检索词' --project /absolute/project
 chorotheia audit --project /absolute/project
 ```
 
-支持 `init`、`retrofit`、`checkpoint`、`restore`、`handoff`、`recall`、`compact`、`status`、`audit`、`repair`、`doctor`、`upgrade`、`uninstall`。初始化支持 auto/new/retrofit/repair/audit 模式和 dry-run。
+支持 `init`、`retrofit`、`checkpoint`、`restore`、`recover`、`handoff`、`recall`、`compact`、`status`、`audit`、`repair`、`doctor`、`upgrade`、`uninstall`。初始化支持 auto/new/retrofit/repair/audit 模式和 dry-run。
 
 新旧项目自动识别；现有 README、AGENTS、HANDOFF、业务代码及依赖保持原样。已有路径冲突时创建独立补充空间。私有备份、事务和完整性凭据放在全局 0700 目录，不混入项目共享笔记。
 
@@ -67,9 +70,9 @@ chorotheia audit --project /absolute/project
 
 ## Agent 接入与 Handoff
 
-| Agent | 配置能力 | v1.1.0 验证边界 |
+| Agent | 配置能力 | v1.2.0 验证边界 |
 |---|---|---|
-| Codex | SessionStart、PreCompact、PostCompact、Stop | 原生发现/解析已验证；信任审阅及真实会话自动触发仍需目标环境验收 |
+| Codex | SessionStart、PreCompact、PostCompact、Stop、UserPromptSubmit、PostToolUse、PreModelRequest、PostModelRequest | 本机会话已观察到压缩前快照、压缩后注入及失败保存；新恢复入口有隔离测试，其他机器仍需原生信任与触发验收 |
 | Antigravity | SessionStart、Stop、全局规则与 Skill | 压缩专用事件未确认，使用阶段检查点降级；真实 App 触发待验收 |
 | Copilot | 共享 Copilot harness 的会话与压缩前配置 | 不承诺旧 Local harness 或远程环境可用；真实会话触发待验收 |
 
@@ -80,6 +83,8 @@ Git 项目可在可信启动 Hook 中自动初始化；非 Git 目录需显式 i
 可按项目启用 `monitor --enable --quota-warning 80 --quota-critical 95`：观察 Codex 新增可见讨论，生成带来源的待核对候选；从近期原生额度证据给出阈值提醒。模型失败或额度耗尽时仅保存已有笔记并标记“尚未总结的进展”。无额外模型 API 或后台守护进程；新增中途 Hook 需原生信任，其他 Agent 暂按原有检查点降级。见[对话观察与额度提醒](docs/OPERATIONS.md#对话观察与额度提醒)。
 
 与 [Universal Handoff](https://github.com/ganbaba/skills/tree/main/agent-handoff) 互补：原控制器继续管理任务、独立工作区、授权及运行凭据。Chorotheia 提供补充记忆和协议 v1 导出，不启动另一 Agent、不伪造运行 token、不改写原控制面。可通过 `install.py --handoff-skill /absolute/universal-handoff/SKILL.md` 记录原 Skill 入口。协议兼容已验证，真实跨服务自动接力尚未联调。
+
+已启用监测且存在未处理失败时，在原会话说“继续”，受支持的下一轮 Hook 会注入恢复核对清单；再次提示保留简短提醒，压缩或会话启动后重新加载。Agent 核对讨论、文件改动、工具结果与运行中任务后，使用 `checkpoint --recovery-result ... --review-recovery TOKEN --test ...` 记录恢复结果。不会自动确认讨论、重试业务操作或宣称测试通过。详见[中断后的恢复核对](docs/OPERATIONS.md#中断后的恢复核对)。
 
 ## 安全与验证
 

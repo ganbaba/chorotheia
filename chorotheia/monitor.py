@@ -14,6 +14,10 @@ from .memory import bounded, redact
 from .quota import normalize, evaluate, read_native
 
 DEFAULTS = {'enabled': False, 'warning_percent': 80, 'critical_percent': 95, 'quota_ttl': 300}
+# A batch may finish its last record beyond the target, without unbounded reads.
+SCAN_BYTES = 1024 * 1024
+MAX_RECORD_BYTES = 8 * 1024 * 1024
+DRAIN_BYTES = 64 * 1024
 CUES = {'goal': r'目标|需求|改为|改成|范围|objective|requirement|scope',
         'decision': r'决定|采用|使用|先支持|延后|不再|decid|chosen|defer|instead',
         'completed': r'已完成|已实现|已验证|已通过|完成了|implemented|completed|passed',
@@ -101,11 +105,15 @@ def public(data, details=False):
     for key, s in data.get('streams', {}).items():
         item = {'source_id': key, 'pending_messages': s.get('pending_count', 0), 'gap': s.get('gap', False),
                 'backlog': s.get('backlog', False),
+                'oversized_records': s.get('oversized_records', 0),
+                'discarding_record': bool(s.get('discarding_record')),
                 'candidate_count': len(s.get('candidates', [])), 'baseline_cursor': s.get('baseline_cursor'),
                 'observed_cursor': s.get('cursor'), 'reviewed_cursor': s.get('reviewed_cursor'),
                 'review_token': review_token(s) if s.get('pending_count') or s.get('gap') else None}
         if details:
             item.update(session_id=s['session_id'], source=s['source'], candidates=s.get('candidates', []))
+            if s.get('last_oversized_record'):
+                item['last_oversized_record'] = s['last_oversized_record']
         streams.append(item)
     quota = evaluate(data.get('quota'), settings['warning_percent'], settings['critical_percent'], settings['quota_ttl'])
     count = sum(s['pending_messages'] for s in streams)
@@ -187,6 +195,44 @@ def quota_record(record):
             return None
 
 
+def records(f, stream, size):
+    """Read complete JSONL records with bounded work and explicit overflow gaps.
+
+    Normal records can cross the batch boundary. Beyond the parse cap, drain
+    incrementally without retaining content, so later quotas remain reachable.
+    A drained record is never treated as observed/reviewed discussion. The
+    caller still validates source identity and the saved cursor anchor first.
+    """
+    start = f.tell()
+    while f.tell() < size and f.tell() - start < SCAN_BYTES:
+        begin = f.tell()
+        if stream.get('discarding_record'):
+            chunk = f.readline(min(DRAIN_BYTES, SCAN_BYTES - (begin - start), size - begin))
+            last = stream['last_oversized_record']
+            last['byte_end'] = f.tell()
+            if chunk.endswith(b'\n'):
+                last['complete'] = True
+                stream.pop('discarding_record')
+            continue
+        line = f.readline(min(MAX_RECORD_BYTES + 1, size - begin))
+        if len(line) > MAX_RECORD_BYTES:
+            stream['gap'] = True
+            # An unparsed record might change turn_context; do not attribute
+            # subsequent discussion until a valid turn_context restores it.
+            stream['context_cwd'] = None
+            stream['oversized_records'] = stream.get('oversized_records', 0) + 1
+            complete = line.endswith(b'\n')
+            stream['last_oversized_record'] = {'byte_start': begin, 'byte_end': f.tell(), 'complete': complete}
+            if not complete:
+                stream['discarding_record'] = True
+            continue
+        if not line.endswith(b'\n'):
+            # A writer has not finished the record. Retry from the same boundary.
+            f.seek(begin)
+            break
+        yield begin, f.tell(), line
+
+
 def scan(home, manifest, project, session_id, transcript, include_existing=False):
     data = load(home, manifest)
     if not data['settings'].get('enabled'):
@@ -247,19 +293,14 @@ def scan(home, manifest, project, session_id, transcript, include_existing=False
             if s.get('anchor') and s['anchor'] != anchor:
                 raise SafetyError('Transcript changed before cursor; source requires inspection')
             f.seek(old)
-            chunk = f.read(1024 * 1024)
-            end = chunk.rfind(b'\n') + 1
-            if not end and len(chunk) == 1024 * 1024:
-                raise SafetyError('Transcript record exceeds 1 MiB; cursor not advanced')
-            offset = old
-            for line in chunk[:end].splitlines(keepends=True):
-                begin, offset = offset, offset + len(line)
+            for begin, offset, line in records(f, s, st.st_size):
                 try:
                     record = json.loads(line)
                     if not isinstance(record, dict):
                         raise ValueError('Expected source object')
-                except (ValueError, UnicodeError):
+                except (ValueError, UnicodeError, RecursionError):
                     s['gap'] = True
+                    s['context_cwd'] = None
                     continue
                 evidence = quota_record(record)
                 if evidence:
@@ -268,8 +309,8 @@ def scan(home, manifest, project, session_id, transcript, include_existing=False
                 if record.get('type') == 'turn_context' and isinstance(p, dict) and isinstance(p.get('cwd'), str):
                     s['context_cwd'] = p['cwd']
                 message = visible(record)
-                cwd = Path(s['context_cwd'])
-                if not message or not (cwd == project or project in cwd.parents):
+                cwd = Path(s['context_cwd']) if isinstance(s['context_cwd'], str) else None
+                if not message or cwd is None or not (cwd == project or project in cwd.parents):
                     continue
                 role, ident, text = message
                 s['pending_count'] += 1
@@ -282,10 +323,10 @@ def scan(home, manifest, project, session_id, transcript, include_existing=False
                                             'timestamp': record.get('timestamp'), 'kinds': kinds,
                                             'excerpt': bounded(text[max(0, first_cue - 40):], 300),
                                             'classification': 'inferred; requires review'})
-            s['cursor'] = old + end
+            s['cursor'] = f.tell()
             f.seek(max(0, s['cursor'] - 1024))
             s['anchor'] = digest(f.read(min(s['cursor'], 1024)))
-            s['backlog'] = s['cursor'] < st.st_size
+            s['backlog'] = s['cursor'] < st.st_size or bool(s.get('discarding_record'))
     data.get('source_errors', {}).pop(key, None)
     save(home, manifest, data, project)
     return public(data)

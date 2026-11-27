@@ -1,7 +1,7 @@
 {
   "name": "Chorotheia",
-  "version": "1.1.0",
-  "tag": "v1.1.0",
+  "version": "1.2.0",
+  "tag": "v1.2.0",
   "tagline": "Memory beyond context.",
   "collaboration_tagline": "One memory. Any agent.",
   "positioning": "Universal Agent Context & Memory System",
@@ -10,7 +10,7 @@
     "CONTINUITY",
     "COLLABORATION"
   ],
-  "release_date": "2026-11-26",
+  "release_date": "2026-11-27",
   "files": [
     ".github/workflows/release.yml",
     ".gitignore",
@@ -35,6 +35,8 @@
     "chorotheia/memory.py",
     "chorotheia/monitor.py",
     "chorotheia/quota.py",
+    "chorotheia/recovery.py",
+    "chorotheia/relocation.py",
     "docs/ARCHITECTURE.md",
     "docs/OPERATIONS.md",
     "docs/TESTING.md",
@@ -48,7 +50,9 @@
     "tests/test_acceptance.py",
     "tests/test_continuity.py",
     "tests/test_monitor.py",
-    "tests/test_release.py"
+    "tests/test_recovery.py",
+    "tests/test_release.py",
+    "tests/test_relocation.py"
   ],
   "license": "MIT"
 }

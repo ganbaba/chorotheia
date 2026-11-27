@@ -182,7 +182,7 @@ def upgrade_global(target, dry_run=False, source=None):
     with Tree(target, private=True) as home, (contextlib.nullcontext() if dry_run else lock(home, "global-install")):
         r = json.loads(home.read("install-receipt.json"))
         prior = r['version']
-        if prior not in {__version__, '1.0.0'}:
+        if prior not in {__version__, '1.0.0', '1.1.0'}:
             raise SafetyError("No released predecessor migration supplied; unsupported versions are preserved")
         drift = [p for p, sha in r["files"].items() if home.hash(p) != sha]
         if drift or not source:

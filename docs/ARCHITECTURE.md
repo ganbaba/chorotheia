@@ -20,7 +20,7 @@ flowchart LR
 | Chorotheia Bootstrap | 新旧项目识别、冲突隔离、完整性前后核验 | `bootstrap.py` |
 | Chorotheia Memory | 分层记忆、来源与敏感模式过滤 | `memory.py` |
 | Chorotheia Checkpoint | 当前状态与不可变历史 | `core.py` |
-| Chorotheia Restore | L0/L1 恢复及按需读取 | `memory.py`、`core.py` |
+| Chorotheia Restore | L0/L1 恢复、异常核对计划与显式恢复结果 | `memory.py`、`recovery.py`、`core.py` |
 | Chorotheia Handoff | 可携带笔记及原协议导出 | `core.py` |
 | Chorotheia Guard | 路径、链接、锁、原子写、哈希与回滚 | `guard.py` |
 | Chorotheia Compact | 保留原件的逻辑归档 | `core.py` |

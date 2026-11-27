@@ -437,6 +437,18 @@ with Tree(sys.argv[1]) as p,Tree(sys.argv[2],private=True) as h,lock(h,p.root):
         self.assertEqual(self.tree.read("README.md"), b"user-doc")
         self.assertEqual(self.tree.read(".agent/STATE.md"), b"user edited memory")
 
+    def test_version_1_1_project_upgrade_preserves_checkpoint(self):
+        self.init()
+        self.cp('Existing 1.1 progress')
+        before = self.tree.read('.agent/CHECKPOINT.json')
+        m, rel, mh = core.require(self.tree)
+        with Transaction(self.tree, self.home, 'prior-version-fixture') as tx:
+            m['version'] = '1.1.0'
+            core.save_manifest(self.tree, self.home, tx, m, rel, mh)
+        self.assertTrue(core.upgrade(self.tree, self.home)['changed'])
+        self.assertEqual(before, self.tree.read('.agent/CHECKPOINT.json'))
+        self.assertTrue(core.audit(self.tree, self.home)['ok'])
+
     def test_full_project_uninstall_removes_only_owned(self):
         (self.project / "business.py").write_bytes(b"keep")
         self.init()
@@ -525,14 +537,25 @@ class InstallationAcceptance(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def prior_install(self):
+    def prior_install(self, version='1.0.0'):
         source = self.root / 'prior-source'
         for folder in ('chorotheia', 'skills', 'tests'):
             shutil.copytree(SOURCE / folder, source / folder)
         shutil.copyfile(SOURCE / 'LICENSE', source / 'LICENSE')
-        (source / 'chorotheia/__init__.py').write_text('__version__ = "1.0.0"\n')
-        with patch('chorotheia.installation.__version__', '1.0.0'):
+        (source / 'chorotheia/__init__.py').write_text('__version__ = ' + json.dumps(version) + '\n')
+        with patch('chorotheia.installation.__version__', version):
             install(source, self.target, self.user)
+
+    def test_version_1_1_global_upgrade_retains_old_release_and_monitor(self):
+        self.prior_install('1.1.0')
+        old = self.target / 'core/releases/1.1.0/chorotheia/__init__.py'
+        original = old.read_bytes()
+        with Tree(self.target) as home:
+            home.write('projects/example/monitor.json', b'{"pending":"keep"}')
+        self.assertTrue(upgrade_global(self.target, source=SOURCE)['changed'])
+        self.assertEqual(old.read_bytes(), original)
+        self.assertEqual((self.target/'projects/example/monitor.json').read_bytes(), b'{"pending":"keep"}')
+        self.assertEqual(subprocess.check_output([str(self.target/'bin/chorotheia'), '--version'], text=True).strip(), __version__)
 
     def test_version_1_0_global_upgrade_switches_launcher_and_preserves_state(self):
         self.prior_install()

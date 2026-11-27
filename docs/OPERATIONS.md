@@ -1,4 +1,4 @@
-# Chorotheia v1.1.0
+# Chorotheia v1.2.0
 
 Memory beyond context. 本地优先、跨 Agent 的项目记忆与阶段接力工具。
 
@@ -114,7 +114,8 @@ Codex 原生 Hook 提供 session_id、transcript_path、cwd 时，观察器只�
 ```sh
 chorotheia monitor --project /absolute/project --session-id NATIVE_SESSION_ID \
   --transcript /absolute/codex/sessions/.../rollout-...-NATIVE_SESSION_ID.jsonl
-# 仅首次绑定时可加 --include-existing；每次最多扫描 1 MiB，存在 backlog 时重复运行。
+# 仅首次绑定时可加 --include-existing；每轮目标 1 MiB，允许完整读完跨界记录（单条最多 8 MiB）。
+# 存在 backlog 时重复运行，沿原游标追赶，不重设来源或 reviewed_cursor。
 ```
 
 启发式识别目标/决策/完成/下一步/阻塞线索；只生成 `inferred; requires review` 候选。每个项目最多 8 个来源，每个来源最多保留 20 条、每条 300 UTF-8 字节的脱敏片段；数量和摘要哈希仍覆盖所有已观察消息。候选片段不完整时须核对来源，不能将普通问答或历史引用当成确认的任务变化。`monitor --details` 给出消息 ID、字节范围、来源、观察位置和 review_token。
@@ -127,7 +128,11 @@ chorotheia checkpoint --project /absolute/project --summary '核对后的实际�
   --next '下一步' --test '实际验证或未运行原因' --review-discussion EXACT_REVIEW_TOKEN
 ```
 
-多来源时重复传 `--review-discussion`。来源缺口、未读 backlog 不能被令牌跳过。来源替换、截断、游标附近改写或超大记录会拒绝推进；保持原始状态供人工检查，不猜测重新绑定。隐藏的未保存对话、启用前历史、缺失或改变格式的来源不在自动覆盖范围内。旧原生 JSONL 不是稳定公开接口，格式变化时应降级人工核对。
+多来源时重复传 `--review-discussion`。来源缺口、未读 backlog 不能被令牌跳过。来源替换、截断或游标附近改写仍拒绝推进，保持原始状态供人工检查，不猜测重新绑定。
+
+完整记录不超过 8 MiB 时，扫描器会越过批次边界完成读取；尚未写完且未超限的记录保留起始游标，等待换行后再解析。超过 8 MiB 的记录不解析或保存原文，改为有界分批排空到换行，让后续额度事件继续可读；同时保留 `gap=true`、`oversized_records` 数量及详情中的 `last_oversized_record` 字节范围，排空未结束时标记 `discarding_record=true`。这不是讨论已观察或已核对：缺口不会自动解除，核对令牌不能绕过；未解析记录也可能改变项目归属，因此在后续有效 `turn_context` 出现前不导入可见讨论。原转录不修改、不复制。因先前 1 MiB 上限卡住的已有来源可直接重复运行上面的 monitor 命令，从原游标继续；不要禁用重启或伪造新的核对基线。
+
+隐藏的未保存对话、启用前历史、缺失或改变格式的来源不在自动覆盖范围内。旧原生 JSONL 不是稳定公开接口，格式变化时应降级人工核对。
 
 额度观察使用原生 token_count 事件中的额度窗口，或按需通过官方 App Server 读取：
 
@@ -197,7 +202,16 @@ chorotheia repair --project /absolute/project --dry-run
 chorotheia repair --project /absolute/project
 ```
 
-修复只重建缺失的可恢复记忆，不覆盖已修改文件；缺失检查点可从哈希验证通过的历史记录恢复。用户明确审阅过 STATE/CONTEXT/DECISIONS/ERRORS 的编辑后，才用 `repair --adopt` 更新所有权哈希。修改过的 manifest 不会被自动信任。移动或从别的机器导入的记忆可以读取，但缺少本机私有凭据时不允许修改；v1 尚无安全导入/重新绑定工作流。
+修复只重建缺失的可恢复记忆，不覆盖已修改文件；缺失检查点可从哈希验证通过的历史记录恢复。用户明确审阅过 STATE/CONTEXT/DECISIONS/ERRORS 的编辑后，才用 `repair --adopt` 更新所有权哈希。修改过的 manifest 不会被自动信任。从别的机器导入且缺少原本机私有证据的记忆保持只读，不支持猜测导入。
+
+同一台机器上的目录更名/移动可使用本地维护功能：
+
+```sh
+chorotheia repair --project /absolute/current/root --rebind-from /absolute/previous/root --dry-run
+chorotheia repair --project /absolute/current/root --rebind-from /absolute/previous/root
+```
+
+必须同时具备：旧路径已不存在；原私有回执中的项目 ID 与 manifest SHA-256 完全匹配；该回执原始字节与旧路径已提交事务中的记录一致；所有托管记忆完整；两边均无待处理事务；新回执位置未被占用。预览零写入。执行只迁移私有绑定，不修改项目文件；在单一事务中备份原回执、建立新绑定并将旧绑定标为失效，失败可回滚，重复执行为无变化。复制项目、丢失回执、编辑过的记忆或未完成事务均拒绝迁移，不提供跳过校验参数。迁移后再按需进行项目版本升级和 monitor 启用。Codex 聊天若仍记录旧工作目录，需将后续操作指向真实新目录；本命令不修改聊天或应用工作区设置。
 
 中断的事务会阻止后续写入。先检查错误中提供的事务 ID，再预览并执行：
 
@@ -217,7 +231,7 @@ chorotheia uninstall --project /absolute/project --dry-run
 chorotheia uninstall --global-install --dry-run
 ```
 
-`compact` 是可检索的逻辑归档，保留不可变原件，不节省磁盘。项目 upgrade 支持兼容字段布局的 schema 0 → 1，并已用合成旧版夹具验证；没有旧 UACS/Letheia 发布格式可核验，未知格式拒绝迁移。全局 upgrade 默认检查当前版本；`--source /absolute/reviewed/source` 支持本地 v1.1.0 安装或维护包的哈希保护更新、语法检查、备份及幂等更新，不自动下载版本，不推测未来迁移。
+`compact` 是可检索的逻辑归档，保留不可变原件，不节省磁盘。项目 upgrade 支持兼容字段布局的 schema 0 → 1，并已用合成旧版夹具验证；没有旧 UACS/Letheia 发布格式可核验，未知格式拒绝迁移。全局 upgrade 默认检查当前版本；`--source /absolute/reviewed/source` 支持本地 v1.2.0 安装或维护包的哈希保护更新、语法检查、备份及幂等更新，不自动下载版本，不推测未来迁移。
 
 卸载预览不会移除内容。实际卸载必须由你明确执行不带 `--dry-run` 的命令；只移除安装记录中内容仍匹配的自有文件，保留用户编辑、私有记忆和备份。不删除无关文件或递归清理目录。正式安装未执行卸载；卸载验收均在临时配置目录中完成。
 
@@ -243,7 +257,32 @@ python3 -B -m unittest discover -s tests -v
 
 超过 128 KB 的原生事件输入只进行流式丢弃并输出诊断，不保留工具载荷、不阻断工具调用；随后受支持的事件可从对话游标继续观察。这类跳过不代表已读取或核对该次事件。
 
-## 从 v1.0.0 升级到 v1.1.0
+## 中断后的恢复核对
+
+Codex 项目已启用监测且保存了未处理的模型失败时，下一次 `UserPromptSubmit`（包括原会话说“继续”）会注入恢复入口。无需新建聊天或再等一次 SessionStart。首次给出核对流程，后续同一会话、同一失败与显式检查点只给简短待处理提醒；SessionStart / PostCompact 会重新加载。普通阶段未结束、Git 有改动或有待核对讨论，本身不会触发完整异常恢复。
+
+```sh
+chorotheia recover --project /absolute/project
+chorotheia recover --project /absolute/project --text --budget 2400
+```
+
+`recover` 是只读计划，不启动模型、不重试业务操作、不控制进程，也不读取或恢复隐藏推理、未保存文件。计划提供最后快照与显式核对时间、目标/阶段/下一步、当前 Git 指纹、待处理讨论数量及当前恢复令牌。Agent 按需读取相关可见消息、源码差异、保存的工具/测试输出和进程状态，区分已完成、失败、仍在运行和未知，先读已有结果再决定必要的隔离复测。候选片段不等于完整对话；扫描有 backlog/缺口时不可声称全部讨论已核对。记忆不扩大当前用户请求和权限。
+
+核对后重新读取 `recover`，用当前令牌在一个检查点事务中保存恢复结果并确认该次失败：
+
+```sh
+chorotheia checkpoint --project /absolute/project \
+  --summary '已核对的进度及剩余未知工作' --next '继续的具体步骤' \
+  --test '实际测试与结果；或未运行原因' \
+  --recovery-result '恢复核对结果，含失败/运行中/未知事项' \
+  --review-recovery EXACT_CURRENT_RECOVERY_TOKEN
+```
+
+结果须非空且不超过 2000 UTF-8 字节，必须提供测试或未运行原因。新失败、检查点、Git 或语义观察证据变化会使令牌失效；单纯追加已排除的工具记录不会使令牌失效。恢复结果和失败确认一起备份、写入或回滚。该动作不确认讨论：讨论仍需经实际核对后分别提供 `--review-discussion TOKEN`，不可绕过缺口或积压。旧的显式 failure_review_token 接口继续可用，但新恢复流程推荐记录结构化恢复结果。Hook、成功的下一次模型请求和普通检查点均不自动完成恢复。
+
+未启用监测、缺少受支持 Hook 或没有可用失败证据时，不能保证自动入口；手动依据检查点和现有证据核对。大于 128 KB 的原生 Hook 载荷可能跳过，需下一次有界事件或手动 `recover`。恢复入口不能保证 Agent 遵循步骤、还原内部思路或恢复原进程的执行位置。
+
+## 从 v1.0.0 / v1.1.0 升级到 v1.2.0
 
 下载并校验新源码包，在解压后的源码目录执行新版本升级器（旧 CLI 不理解未来版本）：
 
@@ -253,6 +292,6 @@ python3 -B -m chorotheia upgrade --global-install --source "$PWD"
 ~/.chorotheia/bin/chorotheia --version
 ```
 
-升级器只接受已知 1.0.0 前驱或相同版本，核验安装记录和全部自有文件哈希。保留旧 core/releases/1.0.0 目录，在同一事务内备份并切换启动器、VERSION 和配置版本元数据，保留其他设置、私有记忆和 Hook 信任记录。修改过的安装文件会使升级拒绝写入；修改过的注册 Skill/Hooks 保留并报告。项目 schema 仍为 1，旧笔记可直接读取；可显式执行 `chorotheia upgrade --project /absolute/project --dry-run` 后更新项目版本，不改写历史检查点。未知旧格式拒绝迁移。
+升级器只接受已知 1.0.0 / 1.1.0 前驱或相同版本，核验安装记录和全部自有文件哈希。保留既有 core/releases/1.0.0 / 1.1.0 目录，在同一事务内备份并切换启动器、VERSION 和配置版本元数据，保留其他设置、私有记忆和 Hook 信任记录。修改过的安装文件会使升级拒绝写入；修改过的注册 Skill/Hooks 保留并报告。项目 schema 仍为 1，旧笔记可直接读取；可显式执行 `chorotheia upgrade --project /absolute/project --dry-run` 后更新项目版本，不改写历史检查点。未知旧格式拒绝迁移。
 
 启动器使用隔离 Python 环境并显式加载已安装的版本目录，忽略当前项目及 PYTHONPATH 对模块解析的覆盖；从源码目录升级时使用前述新版本模块命令。观察 Hook 遇到项目写锁竞争时有限重试后给出跳过诊断，不把观察失败变成业务工具失败。

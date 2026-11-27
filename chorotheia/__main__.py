@@ -14,7 +14,7 @@ def parser():
     p = argparse.ArgumentParser(description="Chorotheia portable local agent memory (no source recovery)")
     p.add_argument("--version", action="version", version=__version__)
     subs = p.add_subparsers(dest="command", required=True)
-    for cmd in ["init", "retrofit", "checkpoint", "restore", "handoff", "recall", "compact", "status", "audit", "repair", "doctor", "upgrade", "uninstall", "hook", "monitor"]:
+    for cmd in ["init", "retrofit", "checkpoint", "restore", "recover", "handoff", "recall", "compact", "status", "audit", "repair", "doctor", "upgrade", "uninstall", "hook", "monitor"]:
         s = subs.add_parser(cmd)
         s.add_argument("--project", default=".")
         s.add_argument("--home", default=os.environ.get("CHOROTHEIA_HOME", str(Path.home() / ".chorotheia")))
@@ -34,13 +34,16 @@ def parser():
             s.add_argument("--review-discussion", action="append", default=[], help="Exact current monitor review token; repeatable")
         if cmd in ["checkpoint", "hook"]:
             s.add_argument("--agent", default="manual", choices=["manual", "codex", "antigravity", "copilot"])
+        if cmd == 'checkpoint':
+            s.add_argument('--review-recovery', help='Current recover token; requires a recovery result and actual test evidence')
+            s.add_argument('--recovery-result', help='Verified recovery outcome, including remaining unknown work')
         if cmd == "handoff":
             s.add_argument("--to", default="unspecified", dest="target")
             s.add_argument("--task-id")
             s.add_argument("--run-id")
             s.add_argument("--base-revision", type=int)
             s.add_argument("--outcome", choices=["continue", "done", "blocked"], default="continue")
-        if cmd == "restore":
+        if cmd in {"restore", "recover"}:
             s.add_argument("--budget", type=int, default=2400)
             s.add_argument("--text", action="store_true")
         if cmd == "recall":
@@ -51,6 +54,7 @@ def parser():
         if cmd == "repair":
             s.add_argument("--adopt", action="store_true")
             s.add_argument("--rollback")
+            s.add_argument('--rebind-from', help='Previous absolute root of a locally moved project; requires original private receipt and committed journal')
         if cmd == "hook":
             s.add_argument("--event", required=True)
         if cmd == 'monitor':
@@ -105,7 +109,7 @@ def dispatch(args):
                     print('Chorotheia observation skipped: project writer busy; next event can catch up.', file=sys.stderr)
                     return {}
                 time.sleep(0.05 * (attempt + 1))
-    read_only = cmd in {"restore", "recall", "status", "audit"} or args.dry_run or getattr(args, "mode", None) == "audit"
+    read_only = cmd in {"restore", "recover", "recall", "status", "audit"} or args.dry_run or getattr(args, "mode", None) == "audit"
     if cmd == 'monitor' and not (args.transcript or args.refresh_quota or args.monitor_enabled is not None or
                                   args.quota_warning is not None or args.quota_critical is not None):
         read_only = True
@@ -125,7 +129,13 @@ def dispatch(args):
                 if cmd == "checkpoint":
                     return core.checkpoint(tree, home, args.summary, args.next_steps, args.decisions, args.errors, args.tests,
                                            args.agent, args.dry_run, goal=args.goal, completed=args.completed,
-                                           phase=args.phase, phase_state=args.phase_state, review_discussion=args.review_discussion)
+                                           phase=args.phase, phase_state=args.phase_state, review_discussion=args.review_discussion,
+                                           review_recovery=args.review_recovery, recovery_result=args.recovery_result)
+                if cmd == 'recover':
+                    from . import monitor, recovery
+                    m, _, _ = core.require(tree)
+                    result = recovery.plan(tree, m, monitor.public(monitor.load(home, m)))
+                    return recovery.render(result, args.budget) if args.text else result
                 if cmd == "restore":
                     m, _, _ = core.require(tree)
                     from . import monitor
@@ -177,7 +187,7 @@ def dispatch(args):
                         report['freshness'] = core.assess(tree, m, monitoring=report['monitor'])
                     return report
                 if cmd == "repair":
-                    return core.repair(tree, home, args.dry_run, args.adopt, args.rollback)
+                    return core.repair(tree, home, args.dry_run, args.adopt, args.rollback, args.rebind_from)
                 if cmd == "upgrade":
                     return core.upgrade(tree, home, args.dry_run)
                 if cmd == "uninstall":

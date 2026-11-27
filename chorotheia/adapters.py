@@ -95,14 +95,29 @@ def run_hook(home, agent, event, payload):
             if event == 'PostModelRequest':
                 report = monitor.model_outcome(home, m, path, payload)
         warning = monitor.take_notice(home, m, path, event, report) if report['enabled'] else ''
+        recovery_text = ''
+        if agent == 'codex' and (start or event == 'UserPromptSubmit') and report.get('model_failure') and report['enabled']:
+            from .recovery import entry
+            try:
+                recovery_text = entry(home, m, tree, report, payload.get('session_id'),
+                                      budget=settings['initial_budget'] // 2 if start else settings['initial_budget'],
+                                      force=start)
+            except (SafetyError, OSError, ValueError):
+                recovery_text = ('Chorotheia recovery pending: checkpoint unavailable or changed. '
+                                 'Inspect audit and preserve existing files; no recovery has been acknowledged.\n')
         if start:
-            text = restore(tree, m, settings["initial_budget"], report)["text"]
+            text = recovery_text + restore(tree, m, settings["initial_budget"] - len(recovery_text.encode()), report)["text"]
             if agent == "codex":
                 return {"hookSpecificOutput": {"hookEventName": "SessionStart" if event == "SessionStart" else "PostCompact", "additionalContext": text}}
             if agent == "antigravity":
                 return {"injectSteps": [{"systemMessage": {"systemMessage": text}}]}
             return {"additionalContext": text}
         if event in {'UserPromptSubmit', 'PostToolUse'}:
+            if recovery_text:
+                # Recovery is a trusted procedure with untrusted evidence, not
+                # an execution block or automatic semantic acknowledgement.
+                return {'systemMessage': recovery_text,
+                        'hookSpecificOutput': {'hookEventName': event, 'additionalContext': recovery_text}}
             if warning:
                 return {'systemMessage': warning, 'hookSpecificOutput': {'hookEventName': event, 'additionalContext': warning}}
             return {}

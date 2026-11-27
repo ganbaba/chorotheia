@@ -85,7 +85,8 @@ def initialize(tree, home, mode="auto", dry_run=False, capabilities=None):
 
 
 def checkpoint(tree, home, summary, next_steps=(), decisions=(), errors=(), tests=(), agent="manual", dry_run=False,
-               goal=None, completed=(), phase=None, phase_state=None, snapshot=False, review_discussion=(), **unused):
+               goal=None, completed=(), phase=None, phase_state=None, snapshot=False, review_discussion=(),
+               review_recovery=None, recovery_result=None, **unused):
     m, rel, mh = require(tree, home, writable=not dry_run)
     if not dry_run:
         check_pending(home, tree.root)
@@ -97,9 +98,25 @@ def checkpoint(tree, home, summary, next_steps=(), decisions=(), errors=(), test
     monitor_data = monitor.load(home, m)
     if snapshot and review_discussion:
         raise SafetyError('Automatic snapshots cannot acknowledge discussion')
-    reviewed_tokens = monitor.acknowledge(monitor_data, review_discussion) if review_discussion else []
-    observation = monitor.public(monitor_data)
     observed = observe(tree, m)
+    recovery_record = current.get('recovery')
+    recovery_tokens = []
+    if review_recovery is not None or recovery_result is not None:
+        if (snapshot or not review_recovery or not isinstance(recovery_result, str) or
+                not recovery_result.strip() or len(recovery_result.encode()) > 2000 or
+                not any(isinstance(t, str) and t.strip() for t in tests)):
+            raise SafetyError('Recovery acknowledgement requires a current token, result (1..2000 UTF-8 bytes) and actual tests or why not run')
+        from .recovery import plan
+        recovery_plan = plan(tree, m, monitor.public(monitor_data), observed)
+        if not recovery_plan['required'] or review_recovery != recovery_plan['recovery_token']:
+            raise SafetyError('Recovery token missing or stale; inspect recover again')
+        recovery_tokens = [recovery_plan['incident_id']]
+        recovery_record = {'incident_id': recovery_plan['incident_id'], 'plan_token': review_recovery,
+                           'result': recovery_result, 'reviewed_at': stamp,
+                           'evidence': 'Agent/operator review; not independently verified by Chorotheia'}
+    tokens = list(review_discussion) + recovery_tokens
+    reviewed_tokens = monitor.acknowledge(monitor_data, tokens) if tokens else []
+    observation = monitor.public(monitor_data)
     stage = current.get('phase')
     if phase_state is not None and phase_state not in {'open', 'complete'}:
         raise SafetyError('Phase state must be open or complete')
@@ -122,6 +139,7 @@ def checkpoint(tree, home, summary, next_steps=(), decisions=(), errors=(), test
                 "reviewed_at": stamp, "reviewed_checkpoint_id": ident, "covered_git": observed,
                 "observed_git": observed,
                 "discussion_review_tokens": reviewed_tokens,
+                "recovery": recovery_record,
                 "unsummarized_progress": {'pending': observation['unsummarized_progress'],
                     'label': observation['label'], 'pending_messages': observation['pending_messages'],
                     'model_failure': observation['model_failure'], 'quota_state': observation['quota']['state']},
@@ -129,7 +147,7 @@ def checkpoint(tree, home, summary, next_steps=(), decisions=(), errors=(), test
     if snapshot:
         # Copy semantic data, never promote a hook snapshot to explicit review.
         for key in ('summary', 'goal', 'completed', 'phase', 'next_steps', 'decisions', 'errors', 'tests',
-                    'reviewed_at', 'reviewed_checkpoint_id', 'covered_git'):
+                    'reviewed_at', 'reviewed_checkpoint_id', 'covered_git', 'recovery'):
             cp[key] = current.get(key)
     if len(encode(cp)) > 128000:
         raise SafetyError("Checkpoint too large (128KB maximum); store evidence separately")
@@ -194,7 +212,12 @@ def audit(tree, home=None):
                   "original_integrity": original, "manifest_sha256": mh})
 
 
-def repair(tree, home, dry_run=False, adopt=False, rollback=None):
+def repair(tree, home, dry_run=False, adopt=False, rollback=None, rebind_from=None):
+    if rebind_from is not None:
+        if adopt or rollback:
+            raise SafetyError('Relocation cannot be combined with adoption or rollback')
+        from .relocation import rebind
+        return rebind(tree, home, rebind_from, dry_run)
     if rollback:
         if not (len(rollback) == 32 and all(c in "0123456789abcdef" for c in rollback)):
             raise SafetyError("Invalid transaction ID")
@@ -368,8 +391,8 @@ def upgrade(tree, home, dry_run=False):
     receipt(tree, home, m, mh)
     if m["schema"] == 1 and m["version"] == __version__:
         return {"changed": False, "version": __version__}
-    if m['schema'] != 0 and not (m['schema'] == 1 and m['version'] == '1.0.0' and __version__ == '1.1.0'):
-        raise SafetyError("Only documented schema 0 -> 1 and version 1.0.0 -> 1.1.0 migrations supported")
+    if m['schema'] != 0 and not (m['schema'] == 1 and m['version'] in {'1.0.0', '1.1.0'} and __version__ == '1.2.0'):
+        raise SafetyError("Only documented schema 0 -> 1 and version 1.0.0/1.1.0 -> 1.2.0 migrations supported")
     if dry_run:
         return {"dry_run": True, "from_schema": m['schema'], "to_schema": 1,
                 "from_version": m['version'], "to_version": __version__}
